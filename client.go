@@ -1,4 +1,4 @@
-package loader
+package main
 
 import (
 	"crypto/tls"
@@ -12,13 +12,13 @@ func client() (*fasthttp.Client, error) {
 	MaxConnsPerHost: 60000,
 	TLSConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
-	req := fasthttp.AcquireRequest()
+	//req := fasthttp.AcquireRequest()
 	//req.SetBody([]byte(`{"username":"xxxxxx", "password":"xxxxxx"}`))
 	//req.Header.SetContentType("application/x-www-form-urlencoded")
 	//req.Header.SetMethod("POST")
 	//resp := fasthttp.AcquireResponse()
-	req.SetRequestURI("https://127.0.0.1:8060/fip/v1/auth/login")
-	defer fasthttp.ReleaseRequest(req)
+	//req.SetRequestURI("https://127.0.0.1:8060/fip/v1/auth/login")
+	//defer fasthttp.ReleaseRequest(req)
 	//defer fasthttp.ReleaseResponse(resp)
 	//if err := hc.DoTimeout(req, resp, 20*time.Second); err != nil {
 	//}

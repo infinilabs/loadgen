@@ -1,40 +1,27 @@
-package loader
+package main
 
 import (
 	"fmt"
+	"infini.sh/framework/core/global"
 	"infini.sh/framework/lib/fasthttp"
-	"log"
+	log "github.com/cihub/seelog"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
-
-	"infini.sh/http-loader/util"
 )
 
 const (
-	USER_AGENT = "go-wrk"
+	USER_AGENT = "loadgen"
 )
 
 type LoadCfg struct {
 	duration           int //seconds
 	goroutines         int
 	testUrl            string
-	//reqBody            string
-	//method             string
-	//host               string
-	//header             map[string]string
 	statsAggregator    chan *RequesterStats
-	//timeoutms          int
-	//allowRedirects     bool
-	//disableCompression bool
-	//disableKeepAlive   bool
 	interrupted        int32
-	//clientCert         string
-	//clientKey          string
-	//caCert             string
-	//http2              bool
 }
 
 // RequesterStats used for colelcting aggregate statistics
@@ -45,24 +32,13 @@ type RequesterStats struct {
 	MaxRequestTime time.Duration
 	NumRequests    int
 	NumErrs        int
+	NumInvalid        int
 }
 
 func NewLoadCfg(duration int, //seconds
 	goroutines int,
 	testUrl string,
-	//reqBody string,
-	//method string,
-	//host string,
-	//header map[string]string,
 	statsAggregator chan *RequesterStats,
-	//timeoutms int,
-	//allowRedirects bool,
-	//disableCompression bool,
-	//disableKeepAlive bool,
-	//clientCert string,
-	//clientKey string,
-	//caCert string,
-	//http2 bool
 ) (rt *LoadCfg) {
 	rt = &LoadCfg{duration, goroutines,testUrl,  statsAggregator,0}
 	return
@@ -99,47 +75,50 @@ func escapeUrlStr(in string) string {
 
 //DoRequest single request implementation. Returns the size of the response and its duration
 //On error - returns -1 on both
-func DoRequest(httpClient *fasthttp.Client, loadUrl string) (respSize int, duration time.Duration) {
+func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,valid bool, duration time.Duration) {
 
+	valid=true
 	respSize = -1
 	duration = -1
 
-	loadUrl = escapeUrlStr(loadUrl)
-	//
-	//var buf io.Reader
-	//if len(reqBody) > 0 {
-	//	buf = bytes.NewBufferString(reqBody)
-	//}
-
-	//req, err := http.NewRequest(method, loadUrl, buf)
-	//if err != nil {
-	//	fmt.Println("An error occured doing request", err)
-	//	return
-	//}
-
 	req := fasthttp.AcquireRequest()
+	req.Reset()
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseRequest(req)   // <- do not forget to release
 	defer fasthttp.ReleaseResponse(resp) // <- do not forget to release
 
 
-	req.SetRequestURI(loadUrl)
-	//req.SetBody([]byte(reqBody))
-	//
-	//for hk, hv := range header {
-	//	req.Header.Add(hk, hv)
-	//}
+	req.Header.SetMethod(item.Request.Method)
 
-	//req.Header.Add("User-Agent", USER_AGENT)
+	req.SetRequestURI(item.Request.Url)
+	if item.Request.Body!=""{
+		req.SetBody([]byte(item.Request.Body))
+	}
+
+	if item.Request.BasicAuth.Username!=""{
+		req.SetBasicAuth(item.Request.BasicAuth.Username,item.Request.BasicAuth.Password)
+	}
+
+	if len(item.Request.Headers)>0{
+		for _,v:=range item.Request.Headers{
+			for k1,v1:=range v{
+					req.Header.Set(k1,v1)
+			}
+		}
+	}
+
+	req.Header.Add("User-Agent", USER_AGENT)
 	//if host != "" {
 	//	req.Host = host
 	//}
 	start := time.Now()
 
 
-	err:=httpClient.Do(req, resp)
+	err=httpClient.Do(req, resp)
 
 	if err != nil {
+		valid=false
+
 		fmt.Println("redirect?")
 		//this is a bit weird. When redirection is prevented, a url.Error is retuned. This creates an issue to distinguish
 		//between an invalid URL that was provided and and redirection error.
@@ -154,15 +133,47 @@ func DoRequest(httpClient *fasthttp.Client, loadUrl string) (respSize int, durat
 		fmt.Println("empty response")
 		return
 	}
-	//defer func() {
-	//	if resp != nil && resp.Body != nil {
-	//		resp.Body.Close()
-	//	}
-	//}()
-	//body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("An error occured reading body", err)
+	resBody:=string(resp.Body())
+	if item.Response.Status>0{
+		if resp.StatusCode()!=item.Response.Status{
+			if global.Env().IsDebug {
+				log.Error("invalid status,",item.Request.Url, resp.StatusCode(),len(resBody),resBody)
+			}
+			//os.Exit(1)
+			valid=false
+		}
 	}
+
+	if item.Response.BodySize>0{
+		if len(resBody)!=item.Response.BodySize{
+			if global.Env().IsDebug {
+				fmt.Println(len(resBody))
+				log.Error("invalid response size,",item.Request.Url, resp.StatusCode(),len(resBody),resBody)
+			}
+			//os.Exit(1)
+			valid=false
+		}
+	}
+
+	if item.Response.Body!=""{
+		if string(resp.Body())!=item.Response.Body{
+
+			if global.Env().IsDebug{
+				fmt.Println(len(resBody))
+				fmt.Println(resBody)
+				log.Error("invalid response,",item.Request.Url, resp.StatusCode(),",",len(resBody),",",resBody)
+			}
+			//os.Exit(1)
+			valid=false
+		}
+	}
+
+	//fmt.Println(resp.StatusCode())
+	//fmt.Println(string(resp.Body()))
+
+	//if err != nil {
+	//	fmt.Println("An error occured reading body", err)
+	//}
 	if resp.StatusCode() == http.StatusOK || resp.StatusCode() == http.StatusCreated {
 		duration = time.Since(start)
 		respSize = int(len(resp.Body())) + int(len(resp.Header.Header()))
@@ -178,25 +189,35 @@ func DoRequest(httpClient *fasthttp.Client, loadUrl string) (respSize int, durat
 
 //Requester a go function for repeatedly making requests and aggregating statistics as long as required
 //When it is done, it sends the results using the statsAggregator channel
-func (cfg *LoadCfg) RunSingleLoadSession() {
+func (cfg *LoadCfg) RunSingleLoadSession(items []Item) {
 	stats := &RequesterStats{MinRequestTime: time.Minute}
 	start := time.Now()
 
 	httpClient, err := client()
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
+		return
 	}
 
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
-		respSize, reqDur := DoRequest(httpClient,  cfg.testUrl)
-		if respSize > 0 {
-			stats.TotRespSize += int64(respSize)
-			stats.TotDuration += reqDur
-			stats.MaxRequestTime = util.MaxDuration(reqDur, stats.MaxRequestTime)
-			stats.MinRequestTime = util.MinDuration(reqDur, stats.MinRequestTime)
-			stats.NumRequests++
-		} else {
-			stats.NumErrs++
+
+		for _,v:=range items{
+			respSize,err1,valid, reqDur := DoRequest(httpClient,  v)
+			if !valid{
+				stats.NumInvalid++
+			}
+
+			if err1!=nil{
+				stats.NumErrs++
+			}
+
+			if respSize > 0 {
+				stats.TotRespSize += int64(respSize)
+				stats.TotDuration += reqDur
+				stats.MaxRequestTime = MaxDuration(reqDur, stats.MaxRequestTime)
+				stats.MinRequestTime = MinDuration(reqDur, stats.MinRequestTime)
+				stats.NumRequests++
+			}
 		}
 	}
 	cfg.statsAggregator <- stats
