@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"infini.sh/framework"
 	"infini.sh/framework/core/env"
+	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/module"
 	"infini.sh/framework/core/util"
 	"infini.sh/license"
@@ -92,7 +93,9 @@ func main() {
 	app.Init(nil)
 
 	defer app.Shutdown()
-
+	global.RegisterShutdownCallback(func() {
+		os.Exit(1)
+	})
 	app.Start(func() {
 
 		license.VerifyEOL(config.EOLDate)

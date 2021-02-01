@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"infini.sh/framework/core/global"
+	"infini.sh/framework/core/util"
 	"infini.sh/framework/lib/fasthttp"
 	log "github.com/cihub/seelog"
 	"net/http"
@@ -84,6 +85,7 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 	req := fasthttp.AcquireRequest()
 	req.Reset()
 	resp := fasthttp.AcquireResponse()
+	resp.Reset()
 	defer fasthttp.ReleaseRequest(req)   // <- do not forget to release
 	defer fasthttp.ReleaseResponse(resp) // <- do not forget to release
 
@@ -108,6 +110,8 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 	}
 
 	req.Header.Add("User-Agent", USER_AGENT)
+	sid:=util.GetIncrementID("user_id")
+	req.Header.Add("User-ID", util.IntToString(int(sid)))
 	//if host != "" {
 	//	req.Host = host
 	//}
@@ -147,8 +151,8 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 	if item.Response.BodySize>0{
 		if len(resBody)!=item.Response.BodySize{
 			if global.Env().IsDebug {
-				fmt.Println(len(resBody))
 				log.Error("invalid response size,",item.Request.Url, resp.StatusCode(),len(resBody),resBody)
+				util.FileAppendNewLine("data/invalid_body_size.log",fmt.Sprintf("SID: %v, URL:%v Status: %v Header: %v Header: %v \nBody: %v\n",sid,item.Request.Url,resp.StatusCode(),req.Header.String(),resp.Header.String(),resBody))
 			}
 			//os.Exit(1)
 			valid=false
@@ -159,21 +163,15 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 		if string(resp.Body())!=item.Response.Body{
 
 			if global.Env().IsDebug{
-				fmt.Println(len(resBody))
-				fmt.Println(resBody)
 				log.Error("invalid response,",item.Request.Url, resp.StatusCode(),",",len(resBody),",",resBody)
+				util.FileAppendNewLine("data/invalid_body_content.log",fmt.Sprintf("SID: %v, URL:%v Status: %v Header: %v Header: %v \nBody: %v\n",sid,item.Request.Url,resp.StatusCode(),req.Header.String(),resp.Header.String(),resBody))
+
 			}
 			//os.Exit(1)
 			valid=false
 		}
 	}
 
-	//fmt.Println(resp.StatusCode())
-	//fmt.Println(string(resp.Body()))
-
-	//if err != nil {
-	//	fmt.Println("An error occured reading body", err)
-	//}
 	if resp.StatusCode() == http.StatusOK || resp.StatusCode() == http.StatusCreated {
 		duration = time.Since(start)
 		respSize = int(len(resp.Body())) + int(len(resp.Header.Header()))
