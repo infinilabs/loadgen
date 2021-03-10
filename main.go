@@ -8,7 +8,6 @@ import (
 	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/module"
 	"infini.sh/framework/core/util"
-	"infini.sh/license"
 	"infini.sh/loadgen/config"
 	"os"
 	"os/signal"
@@ -87,8 +86,8 @@ func main() {
 
 	terminalFooter := ("Thanks for using LOADGEN, have a good day!")
 
-	app := framework.NewApp("loadgen", "A http load generator and http testing suit.",
-		util.TrimSpaces(config.Version), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), terminalHeader, terminalFooter)
+	app := framework.NewApp("loadgen", "A http load generator and testing suit.",
+		util.TrimSpaces(config.Version), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
 
 	app.Init(nil)
 
@@ -97,8 +96,6 @@ func main() {
 		os.Exit(1)
 	})
 	app.Start(func() {
-
-		license.VerifyEOL(config.EOLDate)
 
 		module.Start()
 

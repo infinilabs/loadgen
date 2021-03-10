@@ -6,33 +6,33 @@ requests:
       basic_auth:
         username: elastic
         password: yV6syH3KLt4DxqMlCyag
-      url: http://localhost:8000/
-    response:
-      status: 200
-      body_size: 542
-  - request:
-      method: GET
-      url: http://localhost:8000/test/_search?size=1&sort=_id:desc
-      headers:
-        - Content-Type: application/json
-      basic_auth:
-        username: elastic
-        password: yV6syH3KLt4DxqMlCyag
-    response:
-      status: 200
-      body_size: 2615
-      body: '{"took":123,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":10000,"relation":"gte"},"max_score":null,"hits":[{"_index":"test","_type":"_doc","_id":"zyI4TncBJVmQlFHVzjye","_score":null,"_source":{"cluster_uuid":"ZNj6WS4XQjaVA7smFpzzPQ","index_stats":{"created":1611299084283,"index":"a","primaries":{"docs":{"count":2},"fielddata":{"evictions":0,"memory_size_in_bytes":0},"indexing":{"index_time_in_millis":0,"index_total":0,"throttle_time_in_millis":0},"merges":{"total_size_in_bytes":0},"query_cache":{"evictions":0,"hit_count":0,"memory_size_in_bytes":0,"miss_count":0},"refresh":{"external_total_time_in_millis":0,"total_time_in_millis":0},"request_cache":{"evictions":0,"hit_count":0,"memory_size_in_bytes":0,"miss_count":0},"search":{"query_time_in_millis":0,"query_total":23},"segments":{"count":2,"doc_values_memory_in_bytes":152,"fixed_bit_set_memory_in_bytes":0,"index_writer_memory_in_bytes":0,"memory_in_bytes":2728,"norms_memory_in_bytes":128,"points_memory_in_bytes":0,"stored_fields_memory_in_bytes":976,"term_vectors_memory_in_bytes":0,"terms_memory_in_bytes":1472,"version_map_memory_in_bytes":0},"store":{"size_in_bytes":7964}},"shards":{"active_primaries":1,"active_replicas":0,"active_total":1,"initializing":0,"primaries":1,"relocating":0,"replicas":1,"total":2,"unassigned_primaries":0,"unassigned_replicas":1,"unassigned_total":1},"status":"yellow","total":{"docs":{"count":2},"fielddata":{"evictions":0,"memory_size_in_bytes":0},"indexing":{"index_time_in_millis":0,"index_total":0,"throttle_time_in_millis":0},"merges":{"total_size_in_bytes":0},"query_cache":{"evictions":0,"hit_count":0,"memory_size_in_bytes":0,"miss_count":0},"refresh":{"external_total_time_in_millis":0,"total_time_in_millis":0},"request_cache":{"evictions":0,"hit_count":0,"memory_size_in_bytes":0,"miss_count":0},"search":{"query_time_in_millis":0,"query_total":23},"segments":{"count":2,"doc_values_memory_in_bytes":152,"fixed_bit_set_memory_in_bytes":0,"index_writer_memory_in_bytes":0,"memory_in_bytes":2728,"norms_memory_in_bytes":128,"points_memory_in_bytes":0,"stored_fields_memory_in_bytes":976,"term_vectors_memory_in_bytes":0,"terms_memory_in_bytes":1472,"version_map_memory_in_bytes":0},"store":{"size_in_bytes":7964}},"uuid":"dyUURPxqTL-T9OMFVs_faw"},"interval_ms":10000,"source_node":{"host":"127.0.0.1","ip":"127.0.0.1","name":"Medcl-Pro.local","timestamp":"2021-01-28T00:56:13.907Z","transport_address":"127.0.0.1:9300","uuid":"ccQg2iV3QUqpUvZoIS9f3w"},"timestamp":"2021-01-28T00:56:13.951Z","type":"index_stats"},"sort":["zyI4TncBJVmQlFHVzjye"]}]}}'
-  - request:
-      method: PUT
-      headers:
-       - Content-Type: application/json
-      basic_auth:
-        username: elastic
-        password: yV6syH3KLt4DxqMlCyag
-      url: http://localhost:8000/medcl/_doc/1
-      body: '{"a1":1}'
-    response:
-      status: 200
+      url: http://localhost:9200/
+#    response:
+#      status: 200
+#      body_size: 542
+#  - request:
+#      method: GET
+#      url: http://localhost:8000/test/_search?size=1&sort=_id:desc
+#      headers:
+#        - Content-Type: application/json
+#      basic_auth:
+#        username: elastic
+#        password: yV6syH3KLt4DxqMlCyag
+#    response:
+#      status: 200
+#      body_size: 2615
+#      body: '{"took":123,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":10000,"relation":"gte"},"max_score":null,"hits":[{"_index":"test","_type":"_doc","_id":"zyI4TncBJVmQlFHVzjye","_score":null,"_source":{"cluster_uuid":"ZNj6WS4XQjaVA7smFpzzPQ","index_stats":{"created":1611299084283,"index":"a","primaries":{"docs":{"count":2},"fielddata":{"evictions":0,"memory_size_in_bytes":0},"indexing":{"index_time_in_millis":0,"index_total":0,"throttle_time_in_millis":0},"merges":{"total_size_in_bytes":0},"query_cache":{"evictions":0,"hit_count":0,"memory_size_in_bytes":0,"miss_count":0},"refresh":{"external_total_time_in_millis":0,"total_time_in_millis":0},"request_cache":{"evictions":0,"hit_count":0,"memory_size_in_bytes":0,"miss_count":0},"search":{"query_time_in_millis":0,"query_total":23},"segments":{"count":2,"doc_values_memory_in_bytes":152,"fixed_bit_set_memory_in_bytes":0,"index_writer_memory_in_bytes":0,"memory_in_bytes":2728,"norms_memory_in_bytes":128,"points_memory_in_bytes":0,"stored_fields_memory_in_bytes":976,"term_vectors_memory_in_bytes":0,"terms_memory_in_bytes":1472,"version_map_memory_in_bytes":0},"store":{"size_in_bytes":7964}},"shards":{"active_primaries":1,"active_replicas":0,"active_total":1,"initializing":0,"primaries":1,"relocating":0,"replicas":1,"total":2,"unassigned_primaries":0,"unassigned_replicas":1,"unassigned_total":1},"status":"yellow","total":{"docs":{"count":2},"fielddata":{"evictions":0,"memory_size_in_bytes":0},"indexing":{"index_time_in_millis":0,"index_total":0,"throttle_time_in_millis":0},"merges":{"total_size_in_bytes":0},"query_cache":{"evictions":0,"hit_count":0,"memory_size_in_bytes":0,"miss_count":0},"refresh":{"external_total_time_in_millis":0,"total_time_in_millis":0},"request_cache":{"evictions":0,"hit_count":0,"memory_size_in_bytes":0,"miss_count":0},"search":{"query_time_in_millis":0,"query_total":23},"segments":{"count":2,"doc_values_memory_in_bytes":152,"fixed_bit_set_memory_in_bytes":0,"index_writer_memory_in_bytes":0,"memory_in_bytes":2728,"norms_memory_in_bytes":128,"points_memory_in_bytes":0,"stored_fields_memory_in_bytes":976,"term_vectors_memory_in_bytes":0,"terms_memory_in_bytes":1472,"version_map_memory_in_bytes":0},"store":{"size_in_bytes":7964}},"uuid":"dyUURPxqTL-T9OMFVs_faw"},"interval_ms":10000,"source_node":{"host":"127.0.0.1","ip":"127.0.0.1","name":"Medcl-Pro.local","timestamp":"2021-01-28T00:56:13.907Z","transport_address":"127.0.0.1:9300","uuid":"ccQg2iV3QUqpUvZoIS9f3w"},"timestamp":"2021-01-28T00:56:13.951Z","type":"index_stats"},"sort":["zyI4TncBJVmQlFHVzjye"]}]}}'
+#  - request:
+#      method: PUT
+#      headers:
+#       - Content-Type: application/json
+#      basic_auth:
+#        username: elastic
+#        password: yV6syH3KLt4DxqMlCyag
+#      url: http://localhost:8000/medcl/_doc/1
+#      body: '{"a1":1}'
+#    response:
+#      status: 200
 #  - request:
 #      method: POST
 #      headers:
