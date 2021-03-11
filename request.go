@@ -16,6 +16,11 @@ limitations under the License.
 
 package main
 
+import (
+	"infini.sh/framework/core/util"
+	"math/rand"
+)
+
 //- request:
 //- method: GET
 //url: /
@@ -25,6 +30,7 @@ package main
 //body:
 //- request:
 type Request struct {
+	HasVariable bool `config:"has_variable"`
 	Method string `config:"method"`
 	Url    string `config:"url"`
 	Body   string `config:"body"`
@@ -39,6 +45,33 @@ type Response struct {
 	Status int    `config:"status"`
 	Body   string `config:"body"`
 	BodySize   int `config:"body_size"`
+}
+
+type Variable struct {
+	Name   string `config:"name"`
+	Path   string `config:"path"`
+}
+
+type LoadgenConfig struct {
+	Variable []Variable `config:"variables"`
+	Requests []Item `config:"requests"`
+}
+
+var dict= map[string][]string{}
+func (config *LoadgenConfig)Init()  {
+	for _,i:=range config.Variable{
+		lines:=util.FileGetLines(i.Path)
+		dict[util.TrimSpaces(i.Name)]=lines
+	}
+}
+
+func (config *LoadgenConfig)GetVariable(key string)string  {
+	d,ok:=dict[key]
+	if ok{
+		offset:=rand.Intn(len(d)-1)
+		return d[offset]
+	}
+	return "not_found"
 }
 
 type Item struct {

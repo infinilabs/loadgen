@@ -8,6 +8,7 @@ import (
 	log "github.com/cihub/seelog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -187,7 +188,7 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 
 //Requester a go function for repeatedly making requests and aggregating statistics as long as required
 //When it is done, it sends the results using the statsAggregator channel
-func (cfg *LoadCfg) RunSingleLoadSession(items []Item) {
+func (cfg *LoadCfg) RunSingleLoadSession(config LoadgenConfig) {
 	stats := &RequesterStats{MinRequestTime: time.Minute}
 	start := time.Now()
 
@@ -197,9 +198,32 @@ func (cfg *LoadCfg) RunSingleLoadSession(items []Item) {
 		return
 	}
 
+	regex,err:=regexp.Compile("(\\$\\[\\[(\\w+?)\\]\\])")
+
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
 
-		for _,v:=range items{
+		for _,v:=range config.Requests{
+
+			//replace variable
+
+			if err!=nil{
+				panic(err)
+			}
+
+			if v.Request.HasVariable{
+				allMatchs:=regex.FindAllString(v.Request.Body,-1)
+				for _,v1:=range allMatchs{
+					vold:=v1
+					v1=util.TrimLeftStr(v1,"$[[")
+					v1=util.TrimRightStr(v1,"]]")
+					variable:=config.GetVariable(v1)
+					v.Request.Body=strings.ReplaceAll(v.Request.Body,vold,fmt.Sprintf("%s",util.TrimSpaces(variable)))
+				}
+				if global.Env().IsDebug{
+					log.Debug("replaced body:",v.Request)
+				}
+			}
+
 			respSize,err1,valid, reqDur := DoRequest(httpClient,  v)
 			if !valid{
 				stats.NumInvalid++

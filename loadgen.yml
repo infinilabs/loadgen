@@ -1,5 +1,11 @@
+variables:
+  - name: ip
+    path: data/ip.txt
+  - name: user
+    path: data/user.txt
 requests:
   - request:
+      has_variable: true
       method: GET
       headers:
         - Content-Type: application/json
@@ -7,6 +13,7 @@ requests:
         username: elastic
         password: yV6syH3KLt4DxqMlCyag
       url: http://localhost:9200/
+      body: '{"name":"$[[user]]","ip":"$[[ip]]"}'
 #    response:
 #      status: 200
 #      body_size: 542

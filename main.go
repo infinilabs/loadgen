@@ -24,7 +24,7 @@ func init() {
 	flag.IntVar(&duration, "d", 10, "Duration of test in seconds")
 }
 
-func startLoader(items []Item) {
+func startLoader(loadgenConfig LoadgenConfig) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	statsAggregator = make(chan *RequesterStats, goroutines)
@@ -37,7 +37,7 @@ func startLoader(items []Item) {
 	loadGen := NewLoadCfg(duration, goroutines,testUrl,statsAggregator)
 
 	for i := 0; i < goroutines; i++ {
-		go loadGen.RunSingleLoadSession(items)
+		go loadGen.RunSingleLoadSession(loadgenConfig)
 	}
 
 	responders := 0
@@ -92,12 +92,14 @@ func main() {
 	app.Init(nil)
 
 	defer app.Shutdown()
+
 	global.RegisterShutdownCallback(func() {
-		os.Exit(1)
 	})
 	app.Start(func() {
 
 		module.Start()
+
+		loaderConfig:=LoadgenConfig{}
 
 		items:=[]Item{}
 		ok,err:=env.ParseConfig("requests",&items)
@@ -105,13 +107,24 @@ func main() {
 			panic(err)
 		}
 
+		variables:=[]Variable{}
+		ok,err=env.ParseConfig("variables",&variables)
+		if ok&&err!=nil{
+			panic(err)
+		}
+
+		loaderConfig.Requests=items
+		loaderConfig.Variable=variables
+
+		loaderConfig.Init()
+
 		//fmt.Println(items)
 		//
 		//c,err:=client()
 		// DoRequest(c,items[0])
 
 		go func() {
-			startLoader(items)
+			startLoader(loaderConfig)
 		}()
 
 	}, func() {
