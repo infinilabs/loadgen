@@ -21,7 +21,6 @@ const (
 type LoadCfg struct {
 	duration           int //seconds
 	goroutines         int
-	testUrl            string
 	statsAggregator    chan *RequesterStats
 	interrupted        int32
 }
@@ -39,40 +38,10 @@ type RequesterStats struct {
 
 func NewLoadCfg(duration int, //seconds
 	goroutines int,
-	testUrl string,
 	statsAggregator chan *RequesterStats,
 ) (rt *LoadCfg) {
-	rt = &LoadCfg{duration, goroutines,testUrl,  statsAggregator,0}
+	rt = &LoadCfg{duration, goroutines,statsAggregator,0}
 	return
-}
-
-func escapeUrlStr(in string) string {
-	qm := strings.Index(in, "?")
-	if qm != -1 {
-		qry := in[qm+1:]
-		qrys := strings.Split(qry, "&")
-		var query string = ""
-		var qEscaped string = ""
-		var first bool = true
-		for _, q := range qrys {
-			qSplit := strings.Split(q, "=")
-			if len(qSplit) == 2 {
-				qEscaped = qSplit[0] + "=" + url.QueryEscape(qSplit[1])
-			} else {
-				qEscaped = qSplit[0]
-			}
-			if first {
-				first = false
-			} else {
-				query += "&"
-			}
-			query += qEscaped
-
-		}
-		return in[:qm] + "?" + query
-	} else {
-		return in
-	}
 }
 
 //DoRequest single request implementation. Returns the size of the response and its duration
@@ -118,13 +87,17 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 	//}
 	start := time.Now()
 
+	if global.Env().IsDebug{
+		log.Tracef(item.Request.Method)
+		log.Tracef(item.Request.Url)
+		log.Tracef(item.Request.Body)
+	}
 
 	err=httpClient.Do(req, resp)
 
 	if err != nil {
 		valid=false
 
-		fmt.Println("redirect?")
 		//this is a bit weird. When redirection is prevented, a url.Error is retuned. This creates an issue to distinguish
 		//between an invalid URL that was provided and and redirection error.
 		rr, ok := err.(*url.Error)
@@ -138,15 +111,18 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 		fmt.Println("empty response")
 		return
 	}
-	resBody:=string(resp.Body())
+	resBody:=string(resp.GetRawBody())
 	if item.Response.Status>0{
 		if resp.StatusCode()!=item.Response.Status{
 			if global.Env().IsDebug {
 				log.Error("invalid status,",item.Request.Url, resp.StatusCode(),len(resBody),resBody)
 			}
-			//os.Exit(1)
 			valid=false
 		}
+	}
+
+	if global.Env().IsDebug{
+		log.Trace(resBody)
 	}
 
 	if item.Response.BodySize>0{
@@ -161,7 +137,7 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 	}
 
 	if item.Response.Body!=""{
-		if string(resp.Body())!=item.Response.Body{
+		if string(resBody)!=item.Response.Body{
 
 			if global.Env().IsDebug{
 				log.Error("invalid response,",item.Request.Url, resp.StatusCode(),",",len(resBody),",",resBody)
@@ -186,6 +162,23 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 	return
 }
 
+var regex=regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
+
+func (config *LoadgenConfig)ReplaceVariable(v string) string {
+	allMatchs:=regex.FindAllString(v,-1)
+	for _,v1:=range allMatchs{
+		vold:=v1
+		v1=util.TrimLeftStr(v1,"$[[")
+		v1=util.TrimRightStr(v1,"]]")
+		variable:=config.GetVariable(v1)
+		v=strings.ReplaceAll(v,vold,fmt.Sprintf("%s",util.TrimSpaces(variable)))
+	}
+	if global.Env().IsDebug{
+		log.Debug("replaced body:",v)
+	}
+	return v
+}
+
 //Requester a go function for repeatedly making requests and aggregating statistics as long as required
 //When it is done, it sends the results using the statsAggregator channel
 func (cfg *LoadCfg) RunSingleLoadSession(config LoadgenConfig) {
@@ -198,29 +191,18 @@ func (cfg *LoadCfg) RunSingleLoadSession(config LoadgenConfig) {
 		return
 	}
 
-	regex,err:=regexp.Compile("(\\$\\[\\[(\\w+?)\\]\\])")
-
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
 
 		for _,v:=range config.Requests{
 
 			//replace variable
-
-			if err!=nil{
-				panic(err)
-			}
-
 			if v.Request.HasVariable{
-				allMatchs:=regex.FindAllString(v.Request.Body,-1)
-				for _,v1:=range allMatchs{
-					vold:=v1
-					v1=util.TrimLeftStr(v1,"$[[")
-					v1=util.TrimRightStr(v1,"]]")
-					variable:=config.GetVariable(v1)
-					v.Request.Body=strings.ReplaceAll(v.Request.Body,vold,fmt.Sprintf("%s",util.TrimSpaces(variable)))
+				if util.ContainStr(v.Request.Url,"$"){
+					v.Request.Url=config.ReplaceVariable(v.Request.Url)
 				}
-				if global.Env().IsDebug{
-					log.Debug("replaced body:",v.Request)
+
+				if util.ContainStr(v.Request.Body,"$"){
+					v.Request.Body=config.ReplaceVariable(v.Request.Body)
 				}
 			}
 

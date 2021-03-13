@@ -6,13 +6,13 @@ variables:
 requests:
   - request:
       has_variable: true
-      method: GET
-      headers:
-        - Content-Type: application/json
+      method: POST
+#      headers:
+#        - Content-Type: application/json
       basic_auth:
         username: elastic
-        password: yV6syH3KLt4DxqMlCyag
-      url: http://localhost:9200/
+        password: pass
+      url: https://192.168.3.98:9200/medcl/doc/$[[user]]
       body: '{"name":"$[[user]]","ip":"$[[ip]]"}'
 #    response:
 #      status: 200
@@ -42,12 +42,12 @@ requests:
 #      status: 200
 #  - request:
 #      method: POST
-#      headers:
-#       - Content-Type: application/json
+##      headers:
+##       - Content-Type: application/json
 #      basic_auth:
 #        username: elastic
 #        password: yV6syH3KLt4DxqMlCyag
-#      url: http://localhost:8000/medcl/_doc/
+#      url: http://localhost:9200/medcl/_doc/
 #      body: '{"a":1}'
 #    response:
 #      status: 201

@@ -11,7 +11,6 @@ import (
 	"infini.sh/loadgen/config"
 	"os"
 	"os/signal"
-	"runtime"
 	"time"
 )
 
@@ -25,7 +24,6 @@ func init() {
 }
 
 func startLoader(loadgenConfig LoadgenConfig) {
-	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	statsAggregator = make(chan *RequesterStats, goroutines)
 	sigChan := make(chan os.Signal, 1)
@@ -33,8 +31,8 @@ func startLoader(loadgenConfig LoadgenConfig) {
 	signal.Notify(sigChan, os.Interrupt)
 
 	flag.Parse() // Scan the arguments list
-		testUrl := flag.Arg(0)
-	loadGen := NewLoadCfg(duration, goroutines,testUrl,statsAggregator)
+
+	loadGen := NewLoadCfg(duration, goroutines,statsAggregator)
 
 	for i := 0; i < goroutines; i++ {
 		go loadGen.RunSingleLoadSession(loadgenConfig)
@@ -79,6 +77,31 @@ func startLoader(loadgenConfig LoadgenConfig) {
 
 }
 
+//func addProcessToCgroup(filepath string, pid int) {
+//	file, err := os.OpenFile(filepath, os.O_WRONLY, 0644)
+//	if err != nil {
+//		fmt.Println(err)
+//		os.Exit(1)
+//	}
+//	defer file.Close()
+//
+//	if _, err := file.WriteString(fmt.Sprintf("%d", pid)); err != nil {
+//		fmt.Println("failed to setup cgroup for the container: ", err)
+//		os.Exit(1)
+//	}
+//}
+//
+//func cgroupSetup(pid int) {
+//	for _, c := range []string{"cpu", "memory"} {
+//		cpath := fmt.Sprintf("/sys/fs/cgroup/%s/mycontainer/", c)
+//		if err := os.MkdirAll(cpath, 0644); err != nil {
+//			fmt.Println("failed to create cpu cgroup for my container: ", err)
+//			os.Exit(1)
+//		}
+//		addProcessToCgroup(cpath+"cgroup.procs", pid)
+//	}
+//}
+
 
 func main() {
 
@@ -94,6 +117,7 @@ func main() {
 	defer app.Shutdown()
 
 	global.RegisterShutdownCallback(func() {
+		//os.Exit(1)
 	})
 	app.Start(func() {
 
@@ -130,6 +154,6 @@ func main() {
 	}, func() {
 	})
 
-	time.Sleep(10*time.Second)
+	time.Sleep(1*time.Second)
 
 }
