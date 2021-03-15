@@ -1,3 +1,8 @@
+statsd:
+  enabled: true
+  host: 192.168.3.98
+  port: 8125
+  namespace: loadgen.
 variables:
   - name: ip
     path: data/ip.txt

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"infini.sh/framework/core/global"
+	"infini.sh/framework/core/stats"
 	"infini.sh/framework/core/util"
 	"infini.sh/framework/lib/fasthttp"
 	log "github.com/cihub/seelog"
@@ -95,19 +96,25 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 
 	err=httpClient.Do(req, resp)
 
+	stats.Increment("request","total")
+
 	if err != nil {
 		valid=false
+		stats.Increment("request","invalid")
 
 		//this is a bit weird. When redirection is prevented, a url.Error is retuned. This creates an issue to distinguish
 		//between an invalid URL that was provided and and redirection error.
 		rr, ok := err.(*url.Error)
 		if !ok {
 			fmt.Println("An error occured doing request", err, rr)
-			return
+		}else{
+			fmt.Println("An error occured doing request", err)
 		}
-		fmt.Println("An error occured doing request", err)
+		return
 	}
+
 	if resp == nil {
+		stats.Increment("request","invalid")
 		fmt.Println("empty response")
 		return
 	}
@@ -131,7 +138,6 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 				log.Error("invalid response size,",item.Request.Url, resp.StatusCode(),len(resBody),resBody)
 				util.FileAppendNewLine("data/invalid_body_size.log",fmt.Sprintf("SID: %v, URL:%v Status: %v Header: %v Header: %v \nBody: %v\n",sid,item.Request.Url,resp.StatusCode(),req.Header.String(),resp.Header.String(),resBody))
 			}
-			//os.Exit(1)
 			valid=false
 		}
 	}
@@ -142,9 +148,7 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 			if global.Env().IsDebug{
 				log.Error("invalid response,",item.Request.Url, resp.StatusCode(),",",len(resBody),",",resBody)
 				util.FileAppendNewLine("data/invalid_body_content.log",fmt.Sprintf("SID: %v, URL:%v Status: %v Header: %v Header: %v \nBody: %v\n",sid,item.Request.Url,resp.StatusCode(),req.Header.String(),resp.Header.String(),resBody))
-
 			}
-			//os.Exit(1)
 			valid=false
 		}
 	}
@@ -157,6 +161,15 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 		respSize = int(len(resp.Body())) + int(len(resp.Header.Header()))
 	} else {
 		//fmt.Println("received status code", resp.StatusCode, "from", string(resp.Header.Header()), "content", string(body), req)
+	}
+
+	stats.Timing("request","duration_in_ms",duration.Milliseconds())
+
+	if valid{
+		stats.Increment("request","valid")
+
+	}else{
+		stats.Increment("request","invalid")
 	}
 
 	return

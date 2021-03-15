@@ -8,6 +8,7 @@ import (
 	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/module"
 	"infini.sh/framework/core/util"
+	stats "infini.sh/framework/plugins/stats_statsd"
 	"infini.sh/loadgen/config"
 	"os"
 	"os/signal"
@@ -121,6 +122,7 @@ func main() {
 	})
 	app.Start(func() {
 
+		module.RegisterUserPlugin(stats.StatsDModule{})
 		module.Start()
 
 		loaderConfig:=LoadgenConfig{}
