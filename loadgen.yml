@@ -1,5 +1,5 @@
 statsd:
-  enabled: true
+  enabled: false
   host: 192.168.3.98
   port: 8125
   namespace: loadgen.
@@ -17,7 +17,7 @@ requests:
       basic_auth:
         username: elastic
         password: pass
-      url: https://192.168.3.98:9200/medcl/doc/$[[user]]
+      url: http://localhost:9200/medcl/doc/$[[user]]
       body: '{"name":"$[[user]]","ip":"$[[ip]]"}'
 #    response:
 #      status: 200

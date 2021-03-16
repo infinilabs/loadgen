@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"infini.sh/framework/core/global"
+	"infini.sh/framework/core/rate"
 	"infini.sh/framework/core/stats"
 	"infini.sh/framework/core/util"
 	"infini.sh/framework/lib/fasthttp"
@@ -207,6 +208,15 @@ func (cfg *LoadCfg) RunSingleLoadSession(config LoadgenConfig) {
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
 
 		for _,v:=range config.Requests{
+
+			if rateLimit>0{
+				RetryRateLimit:
+				if !rate.GetRaterWithDefine("loadgen","requests", int(rateLimit)).Allow(){
+					time.Sleep(5*time.Millisecond)
+					goto RetryRateLimit
+				}
+			}
+
 
 			//replace variable
 			if v.Request.HasVariable{
