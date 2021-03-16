@@ -236,7 +236,7 @@ func (cfg *LoadCfg) RunSingleLoadSession(config LoadgenConfig) {
 			if rateLimit>0{
 				RetryRateLimit:
 				if !rate.GetRaterWithDefine("loadgen","requests", int(rateLimit)).Allow(){
-					//time.Sleep(5*time.Millisecond)
+					time.Sleep(10*time.Millisecond)
 					goto RetryRateLimit
 				}
 			}
