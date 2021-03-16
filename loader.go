@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/rate"
@@ -65,9 +66,6 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 	req.Header.SetMethod(item.Request.Method)
 
 	req.SetRequestURI(item.Request.Url)
-	if item.Request.Body!=""{
-		req.SetBody([]byte(item.Request.Body))
-	}
 
 	if item.Request.BasicAuth.Username!=""{
 		req.SetBasicAuth(item.Request.BasicAuth.Username,item.Request.BasicAuth.Password)
@@ -82,11 +80,39 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 	}
 
 	req.Header.Add("User-Agent", USER_AGENT)
-	sid:=util.GetIncrementID("user_id")
-	req.Header.Add("User-ID", util.IntToString(int(sid)))
+	//sid:=util.GetIncrementID("user_id")
+	//req.Header.Add("User-ID", util.IntToString(int(sid)))
 	//if host != "" {
 	//	req.Host = host
 	//}
+
+	if useGzip {
+		req.Header.Set("Accept-Encoding", "gzip")
+		req.Header.Set("content-encoding", "gzip")
+	}
+
+	if len(item.Request.Body) > 0 {
+
+		reqBytes:=[]byte(item.Request.Body)
+		//if item.Request.Body!=""{
+		//	req.SetBody([]byte(item.Request.Body))
+		//}
+
+		if useGzip {
+			_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), reqBytes, fasthttp.CompressBestSpeed)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			//req.SetBody(body)
+			req.SetBodyStreamWriter(func(w *bufio.Writer) {
+				w.Write(reqBytes)
+				w.Flush()
+			})
+
+		}
+	}
+
 	start := time.Now()
 
 	if global.Env().IsDebug{
@@ -116,7 +142,6 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 
 	if resp == nil {
 		stats.Increment("request","invalid")
-		fmt.Println("empty response")
 		return
 	}
 	resBody:=string(resp.GetRawBody())
@@ -137,7 +162,7 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 		if len(resBody)!=item.Response.BodySize{
 			if global.Env().IsDebug {
 				log.Error("invalid response size,",item.Request.Url, resp.StatusCode(),len(resBody),resBody)
-				util.FileAppendNewLine("data/invalid_body_size.log",fmt.Sprintf("SID: %v, URL:%v Status: %v Header: %v Header: %v \nBody: %v\n",sid,item.Request.Url,resp.StatusCode(),req.Header.String(),resp.Header.String(),resBody))
+				//util.FileAppendNewLine("data/invalid_body_size.log",fmt.Sprintf("SID: %v, URL:%v Status: %v Header: %v Header: %v \nBody: %v\n",sid,item.Request.Url,resp.StatusCode(),req.Header.String(),resp.Header.String(),resBody))
 			}
 			valid=false
 		}
@@ -148,7 +173,6 @@ func DoRequest(httpClient *fasthttp.Client, item Item) (respSize int,err error,v
 
 			if global.Env().IsDebug{
 				log.Error("invalid response,",item.Request.Url, resp.StatusCode(),",",len(resBody),",",resBody)
-				util.FileAppendNewLine("data/invalid_body_content.log",fmt.Sprintf("SID: %v, URL:%v Status: %v Header: %v Header: %v \nBody: %v\n",sid,item.Request.Url,resp.StatusCode(),req.Header.String(),resp.Header.String(),resBody))
 			}
 			valid=false
 		}
@@ -212,7 +236,7 @@ func (cfg *LoadCfg) RunSingleLoadSession(config LoadgenConfig) {
 			if rateLimit>0{
 				RetryRateLimit:
 				if !rate.GetRaterWithDefine("loadgen","requests", int(rateLimit)).Allow(){
-					time.Sleep(5*time.Millisecond)
+					//time.Sleep(5*time.Millisecond)
 					goto RetryRateLimit
 				}
 			}

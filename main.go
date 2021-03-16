@@ -18,12 +18,14 @@ import (
 var duration int = 10 //seconds
 var goroutines int = 2
 var rateLimit int = -1
+var useGzip bool =false
 var statsAggregator chan *RequesterStats
 
 func init() {
 	flag.IntVar(&goroutines, "c", 10, "Number of goroutines to use (concurrent connections)")
 	flag.IntVar(&duration, "d", 10, "Duration of test in seconds")
 	flag.IntVar(&rateLimit, "r", -1, "Max number of requests per second (Max QPS)")
+	flag.BoolVar(&useGzip, "compress", false, "Use Gzip to compress requests")
 }
 
 func startLoader(loadgenConfig LoadgenConfig) {
