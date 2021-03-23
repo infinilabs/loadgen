@@ -83,7 +83,7 @@ func (config *AppConfig)ReplaceVariable(v string) string {
 		v=strings.ReplaceAll(v, old,fmt.Sprintf("%s",util.TrimSpaces(variable)))
 	}
 	if global.Env().IsDebug{
-		log.Debug("replaced:",v)
+		log.Trace("replaced:",v)
 	}
 	return v
 }

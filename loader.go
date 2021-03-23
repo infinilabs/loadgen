@@ -6,9 +6,11 @@ import (
 	log "github.com/cihub/seelog"
 	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/rate"
+	"infini.sh/framework/core/stats"
 	"infini.sh/framework/core/util"
 	"infini.sh/framework/lib/fasthttp"
 	"regexp"
+	"strconv"
 	"sync/atomic"
 	"time"
 )
@@ -107,16 +109,22 @@ func doRequest(item RequestItem) (result RequestResult) {
 	result.Duration = time.Since(start)
 	result.Status = resp.StatusCode()
 
+	stats.Timing("request", "duration", result.Duration.Milliseconds())
+	stats.Increment("request", "total")
+	stats.Increment("request", strconv.Itoa(resp.StatusCode()))
+
 	result.RequestSize = req.GetRequestLength()
 	result.ResponseSize = resp.GetResponseLength()
 
 	//verify request
 	if item.Response == nil {
+		result.Valid = false
 		return
 	}
 
 	//skip verify
 	if err != nil {
+		result.Valid = false
 		result.Error=true
 		return
 	}
@@ -215,7 +223,6 @@ func (cfg *LoadGenerator) Run(config AppConfig) {
 				}
 			}
 
-			doRequest(v)
 			result := doRequest(v)
 
 			if !result.Valid{
@@ -239,10 +246,9 @@ func (cfg *LoadGenerator) Run(config AppConfig) {
 			stats.MaxRequestTime = util.MaxDuration(result.Duration, stats.MaxRequestTime)
 			stats.MinRequestTime = util.MinDuration(result.Duration, stats.MinRequestTime)
 			stats.NumRequests++
+
 			//stats.StatusCode[result.Status]=stats.StatusCode[result.Status]+1 //TODO
 
-			//stats.Timing("request", "duration", result.Duration.Milliseconds())
-			//stats.Increment("request", "total")
 			//if valid {
 			//	stats.Increment("request", "valid")
 			//} else {
