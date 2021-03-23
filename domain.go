@@ -17,23 +17,21 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
+	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/util"
 	"math/rand"
+	log "src/github.com/cihub/seelog"
+	"strings"
+	"time"
 )
 
-//- request:
-//- method: GET
-//url: /
-//body:
-//response:
-//status: 200
-//body:
-//- request:
 type Request struct {
 	HasVariable bool `config:"has_variable"`
 	Method string `config:"method"`
 	Url    string `config:"url"`
 	Body   string `config:"body"`
+	RepeatBodyNTimes   int `config:"body_repeat_times"`
 	Headers []map[string]string `config:"headers"`
 	BasicAuth struct{
 		Username string `config:"username"`
@@ -52,20 +50,21 @@ type Variable struct {
 	Path   string `config:"path"`
 }
 
-type LoadgenConfig struct {
-	Variable []Variable `config:"variables"`
-	Requests []Item `config:"requests"`
+type AppConfig struct {
+	Variable []Variable    `config:"variables"`
+	Requests []RequestItem `config:"requests"`
 }
 
 var dict= map[string][]string{}
-func (config *LoadgenConfig)Init()  {
+
+func (config *AppConfig)Init()  {
 	for _,i:=range config.Variable{
 		lines:=util.FileGetLines(i.Path)
 		dict[util.TrimSpaces(i.Name)]=lines
 	}
 }
 
-func (config *LoadgenConfig)GetVariable(key string)string  {
+func (config *AppConfig)GetVariable(key string)string  {
 	d,ok:=dict[key]
 	if ok{
 		offset:=rand.Intn(len(d)-1)
@@ -74,7 +73,31 @@ func (config *LoadgenConfig)GetVariable(key string)string  {
 	return "not_found"
 }
 
-type Item struct {
+func (config *AppConfig)ReplaceVariable(v string) string {
+	matchs :=regex.FindAllString(v,-1)
+	for _,v1:=range matchs {
+		old :=v1
+		v1=util.TrimLeftStr(v1,"$[[")
+		v1=util.TrimRightStr(v1,"]]")
+		variable:=config.GetVariable(v1)
+		v=strings.ReplaceAll(v, old,fmt.Sprintf("%s",util.TrimSpaces(variable)))
+	}
+	if global.Env().IsDebug{
+		log.Debug("replaced:",v)
+	}
+	return v
+}
+
+type RequestItem struct {
 	Request  Request  `config:"request"`
-	Response Response `config:"response"`
+	Response *Response `config:"response"`
+}
+
+type RequestResult struct {
+	RequestSize int
+	ResponseSize int
+	Status int
+	Error bool
+	Valid bool
+	Duration time.Duration
 }

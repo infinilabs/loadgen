@@ -9,19 +9,29 @@ variables:
   - name: user
     path: data/user.txt
 requests:
+#  - request:
+#      has_variable: true
+#      method: POST
+##      headers:
+##        - Content-Type: application/json
+#      basic_auth:
+#        username: elastic
+#        password: pass
+#      url: http://localhost:8000/medcl/doc/$[[user]]
+##      url: http://localhost:9200/medcl/doc/$[[user]]
+#      body: '{"name":"$[[user]]","ip":"$[[ip]]"}'
   - request:
-      has_variable: true
       method: POST
+      has_variable: true
 #      headers:
 #        - Content-Type: application/json
       basic_auth:
         username: elastic
         password: pass
-      url: http://localhost:9200/medcl/doc/$[[user]]
-      body: '{"name":"$[[user]]","ip":"$[[ip]]"}'
-#    response:
-#      status: 200
-#      body_size: 542
+      url: http://localhost:9200/_bulk
+#      url: http://localhost:8000/_bulk
+      body_repeat_times: 1000
+      body: "{ \"index\" : { \"_index\" : \"test\", \"_id\" : \"1\" } }\n{ \"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\" }\n"
 #  - request:
 #      method: GET
 #      url: http://localhost:8000/test/_search?size=1&sort=_id:desc

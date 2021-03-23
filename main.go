@@ -15,50 +15,50 @@ import (
 	"time"
 )
 
-var duration int = 10 //seconds
+var duration int = 10
 var goroutines int = 2
 var rateLimit int = -1
-var useGzip bool =false
-var statsAggregator chan *RequesterStats
+var compress bool =false
+var statsAggregator chan *LoadStats
 
 func init() {
-	flag.IntVar(&goroutines, "c", 10, "Number of goroutines to use (concurrent connections)")
-	flag.IntVar(&duration, "d", 10, "Duration of test in seconds")
-	flag.IntVar(&rateLimit, "r", -1, "Max number of requests per second (Max QPS)")
-	flag.BoolVar(&useGzip, "compress", false, "Use Gzip to compress requests")
+	flag.IntVar(&goroutines, "c", 10, "Number of concurrent threads")
+	flag.IntVar(&duration, "d", 10, "Duration of tests in seconds")
+	flag.IntVar(&rateLimit, "r", -1, "Max requests per second (fixed QPS)")
+	flag.BoolVar(&compress, "compress", false, "Compress requests with gzip")
 }
 
-func startLoader(loadgenConfig LoadgenConfig) {
+func startLoader(cfg AppConfig) {
 
-	statsAggregator = make(chan *RequesterStats, goroutines)
+	statsAggregator = make(chan *LoadStats, goroutines)
 	sigChan := make(chan os.Signal, 1)
 
 	signal.Notify(sigChan, os.Interrupt)
 
 	flag.Parse() // Scan the arguments list
 
-	loadGen := NewLoadCfg(duration, goroutines,statsAggregator)
+	loadGen := NewLoadGenerator(duration, goroutines,statsAggregator)
 
 	for i := 0; i < goroutines; i++ {
-		go loadGen.RunSingleLoadSession(loadgenConfig)
+		go loadGen.Run(cfg)
 	}
 
 	responders := 0
-	aggStats := RequesterStats{MinRequestTime: time.Minute}
+	aggStats := LoadStats{MinRequestTime: time.Minute}
 
 	for responders < goroutines {
 		select {
 		case <-sigChan:
 			loadGen.Stop()
-			fmt.Printf("stopping...\n")
 		case stats := <-statsAggregator:
 			aggStats.NumErrs += stats.NumErrs
 			aggStats.NumInvalid += stats.NumInvalid
 			aggStats.NumRequests += stats.NumRequests
+			aggStats.TotReqSize += stats.TotReqSize
 			aggStats.TotRespSize += stats.TotRespSize
 			aggStats.TotDuration += stats.TotDuration
-			aggStats.MaxRequestTime = MaxDuration(aggStats.MaxRequestTime, stats.MaxRequestTime)
-			aggStats.MinRequestTime = MinDuration(aggStats.MinRequestTime, stats.MinRequestTime)
+			aggStats.MaxRequestTime = util.MaxDuration(aggStats.MaxRequestTime, stats.MaxRequestTime)
+			aggStats.MinRequestTime = util.MinDuration(aggStats.MinRequestTime, stats.MinRequestTime)
 			responders++
 		}
 	}
@@ -72,9 +72,9 @@ func startLoader(loadgenConfig LoadgenConfig) {
 
 	reqRate := float64(aggStats.NumRequests) / avgThreadDur.Seconds()
 	avgReqTime := aggStats.TotDuration / time.Duration(aggStats.NumRequests)
-	bytesRate := float64(aggStats.TotRespSize) / avgThreadDur.Seconds()
-	fmt.Printf("%v requests in %v, %v read\n", aggStats.NumRequests, avgThreadDur, ByteSize{float64(aggStats.TotRespSize)})
-	fmt.Printf("Requests/sec:\t\t%.2f\nTransfer/sec:\t\t%v\nAvg Req Time:\t\t%v\n", reqRate, ByteSize{bytesRate}, avgReqTime)
+	bytesRate := float64(aggStats.TotRespSize+aggStats.TotReqSize) / avgThreadDur.Seconds()
+	fmt.Printf("%v requests in %v, %v read\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize+aggStats.TotRespSize)})
+	fmt.Printf("Requests/sec:\t\t%.2f\nTransfer/sec:\t\t%v\nAvg Req Time:\t\t%v\n", reqRate, util.ByteValue{bytesRate}, avgReqTime)
 	fmt.Printf("Fastest Request:\t%v\n", aggStats.MinRequestTime)
 	fmt.Printf("Slowest Request:\t%v\n", aggStats.MaxRequestTime)
 	fmt.Printf("Number of Errors:\t%v\n", aggStats.NumErrs)
@@ -110,7 +110,11 @@ func startLoader(loadgenConfig LoadgenConfig) {
 
 func main() {
 
-	terminalHeader := ("")
+	terminalHeader := ("   __   ___  _      ___  ___   __    __\n")
+	terminalHeader += ("  / /  /___\\/_\\    /   \\/ _ \\ /__\\/\\ \\ \\\n")
+	terminalHeader += (" / /  //  ///_\\\\  / /\\ / /_\\//_\\ /  \\/ /\n")
+	terminalHeader += ("/ /__/ \\_//  _  \\/ /_// /_\\\\//__/ /\\  /\n")
+	terminalHeader += ("\\____|___/\\_/ \\_/___,'\\____/\\__/\\_\\ \\/\n\n")
 
 	terminalFooter := ("Thanks for using LOADGEN, have a good day!")
 
@@ -129,9 +133,9 @@ func main() {
 		module.RegisterUserPlugin(stats.StatsDModule{})
 		module.Start()
 
-		loaderConfig:=LoadgenConfig{}
+		loaderConfig:= AppConfig{}
 
-		items:=[]Item{}
+		items:=[]RequestItem{}
 		ok,err:=env.ParseConfig("requests",&items)
 		if ok&&err!=nil{
 			panic(err)
@@ -145,13 +149,10 @@ func main() {
 
 		loaderConfig.Requests=items
 		loaderConfig.Variable=variables
-
 		loaderConfig.Init()
 
-		//fmt.Println(items)
-		//
-		//c,err:=client()
-		// DoRequest(c,items[0])
+		//TODO warm up
+		//TODO show confirm message and confirm
 
 		go func() {
 			startLoader(loaderConfig)
