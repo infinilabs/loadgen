@@ -116,12 +116,6 @@ func doRequest(item RequestItem) (result RequestResult) {
 	result.RequestSize = req.GetRequestLength()
 	result.ResponseSize = resp.GetResponseLength()
 
-	//verify request
-	if item.Response == nil {
-		result.Valid = false
-		return
-	}
-
 	//skip verify
 	if err != nil {
 		result.Valid = false
