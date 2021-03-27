@@ -73,12 +73,12 @@ func startLoader(cfg AppConfig) {
 	reqRate := float64(aggStats.NumRequests) / avgThreadDur.Seconds()
 	avgReqTime := aggStats.TotDuration / time.Duration(aggStats.NumRequests)
 	bytesRate := float64(aggStats.TotRespSize+aggStats.TotReqSize) / avgThreadDur.Seconds()
-	fmt.Printf("%v requests in %v, %v read\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize+aggStats.TotRespSize)})
+	fmt.Printf("\n%v requests in %v, %v sent, %v received\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize)},util.ByteValue{float64(aggStats.TotRespSize)})
 	fmt.Printf("Requests/sec:\t\t%.2f\nTransfer/sec:\t\t%v\nAvg Req Time:\t\t%v\n", reqRate, util.ByteValue{bytesRate}, avgReqTime)
 	fmt.Printf("Fastest Request:\t%v\n", aggStats.MinRequestTime)
 	fmt.Printf("Slowest Request:\t%v\n", aggStats.MaxRequestTime)
 	fmt.Printf("Number of Errors:\t%v\n", aggStats.NumErrs)
-	fmt.Printf("Number of Invalid:\t%v\n", aggStats.NumInvalid)
+	fmt.Printf("Number of Invalid:\t%v\n\n", aggStats.NumInvalid)
 
 }
 
