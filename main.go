@@ -22,8 +22,8 @@ var compress bool =false
 var statsAggregator chan *LoadStats
 
 func init() {
-	flag.IntVar(&goroutines, "c", 10, "Number of concurrent threads")
-	flag.IntVar(&duration, "d", 10, "Duration of tests in seconds")
+	flag.IntVar(&goroutines, "c", 1, "Number of concurrent threads")
+	flag.IntVar(&duration, "d", 5, "Duration of tests in seconds")
 	flag.IntVar(&rateLimit, "r", -1, "Max requests per second (fixed QPS)")
 	flag.BoolVar(&compress, "compress", false, "Compress requests with gzip")
 }
@@ -70,15 +70,35 @@ func startLoader(cfg AppConfig) {
 
 	avgThreadDur := aggStats.TotDuration / time.Duration(responders) //need to average the aggregated duration
 
+	roughReqRate := float64(aggStats.NumRequests) / float64(duration)
+	roughReqBytesRate := float64(aggStats.TotReqSize) / float64(duration)
+	roughBytesRate := float64(aggStats.TotRespSize+aggStats.TotReqSize) / float64(duration)
+	roughAvgReqTime := (time.Duration(duration)*time.Second) / time.Duration(aggStats.NumRequests)
+
 	reqRate := float64(aggStats.NumRequests) / avgThreadDur.Seconds()
 	avgReqTime := aggStats.TotDuration / time.Duration(aggStats.NumRequests)
 	bytesRate := float64(aggStats.TotRespSize+aggStats.TotReqSize) / avgThreadDur.Seconds()
+
 	fmt.Printf("\n%v requests in %v, %v sent, %v received\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize)},util.ByteValue{float64(aggStats.TotRespSize)})
-	fmt.Printf("Requests/sec:\t\t%.2f\nTransfer/sec:\t\t%v\nAvg Req Time:\t\t%v\n", reqRate, util.ByteValue{bytesRate}, avgReqTime)
+
+	fmt.Println("\n[Loadgen Client Metrics]")
+	fmt.Printf("Requests/sec:\t\t%.2f\n" +
+		"Request Traffic/sec:\t%v\n" +
+		"Total Transfer/sec:\t%v\n" +
+		"Avg Req Time:\t\t%v\n",
+		roughReqRate,
+		util.ByteValue{roughReqBytesRate},
+		util.ByteValue{roughBytesRate},
+		roughAvgReqTime)
 	fmt.Printf("Fastest Request:\t%v\n", aggStats.MinRequestTime)
 	fmt.Printf("Slowest Request:\t%v\n", aggStats.MaxRequestTime)
 	fmt.Printf("Number of Errors:\t%v\n", aggStats.NumErrs)
-	fmt.Printf("Number of Invalid:\t%v\n\n", aggStats.NumInvalid)
+	fmt.Printf("Number of Invalid:\t%v\n", aggStats.NumInvalid)
+
+	fmt.Printf("\n[Estimated Server Metrics]\nRequests/sec:\t\t%.2f\nTransfer/sec:\t\t%v\nAvg Req Time:\t\t%v\n", reqRate, util.ByteValue{bytesRate}, avgReqTime)
+
+	fmt.Println("\n")
+
 
 }
 

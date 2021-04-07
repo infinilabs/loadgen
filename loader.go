@@ -180,7 +180,8 @@ func (cfg *LoadGenerator) Run(config AppConfig) {
 
 			if rateLimit > 0 {
 			RetryRateLimit:
-				if !rate.GetRaterWithDefine("loadgen", "requests", int(rateLimit)).Allow() {
+				if !rate.GetRateLimiter("loadgen", "requests", int(rateLimit),1,time.Minute*1).Allow() {
+				//if !rate.GetRateLimiterPerSecond("loadgen", "requests", int(rateLimit)).Allow() {
 					time.Sleep(10 * time.Millisecond)
 					goto RetryRateLimit
 				}
