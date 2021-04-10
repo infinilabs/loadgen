@@ -44,7 +44,7 @@ func startLoader(cfg AppConfig) {
 	}
 
 	responders := 0
-	aggStats := LoadStats{MinRequestTime: time.Minute}
+	aggStats := LoadStats{MinRequestTime: time.Minute,StatusCode: map[int]int{}}
 
 	for responders < goroutines {
 		select {
@@ -59,6 +59,15 @@ func startLoader(cfg AppConfig) {
 			aggStats.TotDuration += stats.TotDuration
 			aggStats.MaxRequestTime = util.MaxDuration(aggStats.MaxRequestTime, stats.MaxRequestTime)
 			aggStats.MinRequestTime = util.MinDuration(aggStats.MinRequestTime, stats.MinRequestTime)
+
+			for k,v:=range stats.StatusCode{
+				oldV,ok:=aggStats.StatusCode[k]
+				if !ok{
+					oldV=0
+				}
+				aggStats.StatusCode[k]=oldV+v
+			}
+
 			responders++
 		}
 	}
@@ -94,6 +103,9 @@ func startLoader(cfg AppConfig) {
 	fmt.Printf("Slowest Request:\t%v\n", aggStats.MaxRequestTime)
 	fmt.Printf("Number of Errors:\t%v\n", aggStats.NumErrs)
 	fmt.Printf("Number of Invalid:\t%v\n", aggStats.NumInvalid)
+	for k,v:=range aggStats.StatusCode{
+		fmt.Printf("Status %v:\t\t%v\n", k,v)
+	}
 
 	fmt.Printf("\n[Estimated Server Metrics]\nRequests/sec:\t\t%.2f\nTransfer/sec:\t\t%v\nAvg Req Time:\t\t%v\n", reqRate, util.ByteValue{bytesRate}, avgReqTime)
 

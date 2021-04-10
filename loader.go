@@ -106,6 +106,8 @@ func doRequest(item RequestItem) (result RequestResult) {
 	err := httpClient.Do(req, resp)
 	clientPool.Put(httpClient)
 
+	//err := httpClient.Do(req, resp)
+
 	result.Duration = time.Since(start)
 	result.Status = resp.StatusCode()
 
@@ -116,9 +118,14 @@ func doRequest(item RequestItem) (result RequestResult) {
 	result.RequestSize = req.GetRequestLength()
 	result.ResponseSize = resp.GetResponseLength()
 
+	if resp.StatusCode()==0{
+		if err!=nil{
+			//log.Error(err)
+		}
+	}
+
 	//skip verify
 	if err != nil {
-		result.Valid = false
 		result.Error=true
 		return
 	}
@@ -171,7 +178,7 @@ func doRequest(item RequestItem) (result RequestResult) {
 var regex = regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
 
 func (cfg *LoadGenerator) Run(config AppConfig) {
-	stats := &LoadStats{MinRequestTime: time.Minute}
+	stats := &LoadStats{MinRequestTime: time.Minute,StatusCode: map[int]int{}}
 	start := time.Now()
 
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
@@ -241,14 +248,11 @@ func (cfg *LoadGenerator) Run(config AppConfig) {
 			stats.MaxRequestTime = util.MaxDuration(result.Duration, stats.MaxRequestTime)
 			stats.MinRequestTime = util.MinDuration(result.Duration, stats.MinRequestTime)
 			stats.NumRequests++
-
-			//stats.StatusCode[result.Status]=stats.StatusCode[result.Status]+1 //TODO
-
-			//if valid {
-			//	stats.Increment("request", "valid")
-			//} else {
-			//	stats.Increment("request", "invalid")
-			//}
+			v,ok:=stats.StatusCode[result.Status]
+			if !ok{
+				v=0
+			}
+			stats.StatusCode[result.Status]=v+1
 		}
 	}
 
