@@ -31,12 +31,12 @@ requests:
       method: POST
       has_variable: true
       basic_auth:
-        username: elastic
-        password: ZBdkVQUUdF1Sir4X4BGB
+        username: test
+        password: 111111
 #      url: http://localhost:9200/_bulk
       url: http://localhost:8000/_bulk
       body_repeat_times: 100
-      body: "{ \"index\" : { \"_index\" : \"test\" } }\n{ \"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\" }\n"
+      body: "{ \"index\" : { \"_index\" : \"lab-2019\", \"_type\":\"doc\" } }\n{ \"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\" }\n"
 #  - request:
 #      method: GET
 #      url: http://localhost:8000/test/_search?size=1&sort=_id:desc
