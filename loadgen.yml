@@ -5,9 +5,15 @@ statsd:
   namespace: loadgen.
 variables:
   - name: ip
+    type: file
     path: test/ip.txt
   - name: user
+    type: file
     path: test/user.txt
+  - name: id
+    type: sequence
+  - name: uuid
+    type: uuid
 requests:
 #  - request:
 #      has_variable: true
@@ -31,12 +37,12 @@ requests:
       method: POST
       has_variable: true
       basic_auth:
-        username: elastic
-        password: ZBdkVQUUdF1Sir4X4BGB
+        username: test
+        password: testtest
 #      url: http://localhost:9200/_bulk
-      url: http://localhost:8000/_bulk
-      body_repeat_times: 100
-      body: "{ \"index\" : { \"_index\" : \"test\" } }\n{ \"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\" }\n"
+      url: https://localhost:8001/_bulk
+      body_repeat_times: 1
+      body: "{ \"index\" : { \"_index\" : \"medcl-test\", \"_id\" : \"$[[uuid]]\" } }\n{ \"id\" : \"$[[id]]\",\"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\" }\n"
 #  - request:
 #      method: GET
 #      url: http://localhost:8000/test/_search?size=1&sort=_id:desc

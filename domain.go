@@ -39,13 +39,14 @@ type Request struct {
 	} `config:"basic_auth"`
 }
 
-type Response struct {
+type ResponseAssert struct {
 	Status int    `config:"status"`
 	Body   string `config:"body"`
 	BodySize   int `config:"body_size"`
 }
 
 type Variable struct {
+	Type   string `config:"type"`
 	Name   string `config:"name"`
 	Path   string `config:"path"`
 }
@@ -56,15 +57,31 @@ type AppConfig struct {
 }
 
 var dict= map[string][]string{}
+var variables= map[string]Variable{}
 
 func (config *AppConfig)Init()  {
 	for _,i:=range config.Variable{
-		lines:=util.FileGetLines(i.Path)
-		dict[util.TrimSpaces(i.Name)]=lines
+		name:=util.TrimSpaces(i.Name)
+		if len(i.Path)>0{
+			lines:=util.FileGetLines(i.Path)
+			dict[name]=lines
+		}
+		variables[name]=i
 	}
 }
 
 func (config *AppConfig)GetVariable(key string)string  {
+	 x,ok:=variables[key]
+	 if ok{
+	 	if x.Type=="sequence"{
+	 		return util.IntToString(int(util.GetIncrementID(x.Name)))
+		}
+
+	 	if x.Type=="uuid"{
+	 		return util.GetUUID()
+		}
+	 }
+
 	d,ok:=dict[key]
 	if ok{
 		offset:=rand.Intn(len(d)-1)
@@ -89,8 +106,8 @@ func (config *AppConfig)ReplaceVariable(v string) string {
 }
 
 type RequestItem struct {
-	Request  Request  `config:"request"`
-	Response *Response `config:"response"`
+	Request  Request         `config:"request"`
+	ResponseAssert *ResponseAssert `config:"response"`
 }
 
 type RequestResult struct {

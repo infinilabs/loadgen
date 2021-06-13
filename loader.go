@@ -135,15 +135,21 @@ func doRequest(item RequestItem) (result RequestResult) {
 		result.Valid = false
 		return
 	}
+	if global.Env().IsDebug {
+		resBody := string(resp.GetRawBody())
+		if global.Env().IsDebug {
+			log.Debug(resBody)
+		}
+	}
 
-	if item.Response != nil {
+	if item.ResponseAssert != nil {
 		resBody := string(resp.GetRawBody())
 		if global.Env().IsDebug {
 			log.Trace(resBody)
 		}
 
-		if item.Response.Status > 0 {
-			if resp.StatusCode() != item.Response.Status {
+		if item.ResponseAssert.Status > 0 {
+			if resp.StatusCode() != item.ResponseAssert.Status {
 				if global.Env().IsDebug {
 					log.Error("invalid status,", item.Request.Url, resp.StatusCode(), len(resBody), resBody)
 				}
@@ -152,8 +158,8 @@ func doRequest(item RequestItem) (result RequestResult) {
 			}
 		}
 
-		if item.Response.BodySize > 0 {
-			if len(resBody) != item.Response.BodySize {
+		if item.ResponseAssert.BodySize > 0 {
+			if len(resBody) != item.ResponseAssert.BodySize {
 				if global.Env().IsDebug {
 					log.Trace("invalid response size,", item.Request.Url, resp.StatusCode(), len(resBody), resBody)
 				}
@@ -162,8 +168,8 @@ func doRequest(item RequestItem) (result RequestResult) {
 			}
 		}
 
-		if item.Response.Body != "" {
-			if len(resBody) != len(item.Response.Body) || string(resBody) != item.Response.Body {
+		if item.ResponseAssert.Body != "" {
+			if len(resBody) != len(item.ResponseAssert.Body) || string(resBody) != item.ResponseAssert.Body {
 				if global.Env().IsDebug {
 					log.Trace("invalid response,", item.Request.Url, resp.StatusCode(), ",", len(resBody), ",", resBody)
 				}
