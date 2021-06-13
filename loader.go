@@ -52,8 +52,10 @@ func doRequest(item RequestItem) (result RequestResult) {
 
 	req := fasthttp.AcquireRequest()
 	req.Reset()
+	req.ResetBody()
 	resp := fasthttp.AcquireResponse()
 	resp.Reset()
+	resp.ResetBody()
 	defer fasthttp.ReleaseRequest(req)
 	defer fasthttp.ReleaseResponse(resp)
 
@@ -120,13 +122,25 @@ func doRequest(item RequestItem) (result RequestResult) {
 
 	if resp.StatusCode()==0{
 		if err!=nil{
-			//log.Error(err)
+			if global.Env().IsDebug {
+				log.Error(err)
+				log.Error(string(resp.GetRawBody()))
+			}
+		}
+	}else if resp.StatusCode()!=200{
+		if global.Env().IsDebug {
+			log.Error(err)
+			log.Error(string(resp.GetRawBody()))
 		}
 	}
 
 	//skip verify
 	if err != nil {
 		result.Error=true
+		if global.Env().IsDebug {
+			log.Error(err)
+			log.Error(string(resp.GetRawBody()))
+		}
 		return
 	}
 
