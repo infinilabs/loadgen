@@ -21,7 +21,7 @@ import (
 	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/util"
 	"math/rand"
-	log "src/github.com/cihub/seelog"
+	log "github.com/cihub/seelog"
 	"strings"
 	"time"
 )
