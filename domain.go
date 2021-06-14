@@ -80,6 +80,18 @@ func (config *AppConfig)GetVariable(key string)string  {
 	 	if x.Type=="uuid"{
 	 		return util.GetUUID()
 		}
+
+	 	if x.Type=="now_local"{
+	 		return time.Now().Local().String()
+		}
+
+	 	if x.Type=="now_utc"{
+	 		return time.Now().UTC().String()
+		}
+
+	 	if x.Type=="now_unix"{
+	 		return util.IntToString(int(time.Now().Local().Unix()))
+		}
 	 }
 
 	d,ok:=dict[key]

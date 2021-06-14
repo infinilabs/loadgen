@@ -81,6 +81,8 @@ func doRequest(item RequestItem) (result RequestResult) {
 		req.Header.Set("content-encoding", "gzip")
 	}
 
+	//req.Header.Set("Connection", "close")
+
 	if len(item.Request.Body) > 0 {
 		reqBytes := []byte(item.Request.Body)
 		if compress {

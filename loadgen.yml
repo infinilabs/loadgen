@@ -14,6 +14,12 @@ variables:
     type: sequence
   - name: uuid
     type: uuid
+  - name: now_local
+    type: now_local
+  - name: now_utc
+    type: now_utc
+  - name: now_unix
+    type: now_unix
 requests:
 #  - request:
 #      has_variable: true
@@ -37,12 +43,14 @@ requests:
       method: POST
       has_variable: true
       basic_auth:
-        username: test
-        password: testtest
-#      url: http://localhost:9200/_bulk
-      url: https://localhost:8001/_bulk
-      body_repeat_times: 1
-      body: "{ \"index\" : { \"_index\" : \"medcl-test\", \"_id\" : \"$[[uuid]]\" } }\n{ \"id\" : \"$[[id]]\",\"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\" }\n"
+        username: elastic
+#        username: test
+        password: changeme
+#        password: testtest
+      url: https://localhost:9200/_bulk
+#      url: https://localhost:8001/_bulk
+      body_repeat_times: 100
+      body: "{ \"index\" : { \"_index\" : \"medcl-test\", \"_id\" : \"$[[uuid]]\" } }\n{ \"id\" : \"$[[id]]\",\"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
 #  - request:
 #      method: GET
 #      url: http://localhost:8000/test/_search?size=1&sort=_id:desc
