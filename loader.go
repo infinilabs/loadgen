@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
 	log "github.com/cihub/seelog"
 	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/rate"
@@ -40,9 +41,19 @@ type LoadStats struct {
 
 func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadStats,
 ) (rt *LoadGenerator) {
+
+	httpClient=fasthttp.Client{
+		MaxConnsPerHost: goroutines,
+		ReadTimeout: time.Second * 60,
+		WriteTimeout: time.Second * 60,
+		TLSConfig:       &tls.Config{InsecureSkipVerify: true},
+	}
+
 	rt = &LoadGenerator{duration, goroutines, statsAggregator, 0}
 	return
 }
+
+var httpClient fasthttp.Client
 
 func doRequest(item RequestItem) (result RequestResult) {
 
@@ -106,11 +117,7 @@ func doRequest(item RequestItem) (result RequestResult) {
 
 	start := time.Now()
 
-	httpClient := clientPool.Get().(*fasthttp.Client)
 	err := httpClient.Do(req, resp)
-	clientPool.Put(httpClient)
-
-	//err := httpClient.Do(req, resp)
 
 	result.Duration = time.Since(start)
 	result.Status = resp.StatusCode()
