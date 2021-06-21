@@ -10,6 +10,7 @@ import (
 	"infini.sh/framework/core/stats"
 	"infini.sh/framework/core/util"
 	"infini.sh/framework/lib/fasthttp"
+	"os"
 	"regexp"
 	"strconv"
 	"sync/atomic"
@@ -56,6 +57,10 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 var httpClient fasthttp.Client
 
 func doRequest(item RequestItem) (result RequestResult) {
+	result,_,_=doRequestWithFlag(item)
+	return result
+}
+func doRequestWithFlag(item RequestItem) (result RequestResult,respBody []byte,err error) {
 
 	result= RequestResult{}
 
@@ -117,7 +122,7 @@ func doRequest(item RequestItem) (result RequestResult) {
 
 	start := time.Now()
 
-	err := httpClient.Do(req, resp)
+	err = httpClient.Do(req, resp)
 
 	result.Duration = time.Since(start)
 	result.Status = resp.StatusCode()
@@ -129,17 +134,19 @@ func doRequest(item RequestItem) (result RequestResult) {
 	result.RequestSize = req.GetRequestLength()
 	result.ResponseSize = resp.GetResponseLength()
 
+	respBody=resp.GetRawBody()
+
 	if resp.StatusCode()==0{
 		if err!=nil{
 			if global.Env().IsDebug {
 				log.Error(err)
-				log.Error(string(resp.GetRawBody()))
+				log.Error(string(respBody))
 			}
 		}
 	}else if resp.StatusCode()!=200{
 		if global.Env().IsDebug {
 			log.Error(err)
-			log.Error(string(resp.GetRawBody()))
+			log.Error(string(respBody))
 		}
 	}
 
@@ -148,7 +155,7 @@ func doRequest(item RequestItem) (result RequestResult) {
 		result.Error=true
 		if global.Env().IsDebug {
 			log.Error(err)
-			log.Error(string(resp.GetRawBody()))
+			log.Error(string(respBody))
 		}
 		return
 	}
@@ -159,22 +166,20 @@ func doRequest(item RequestItem) (result RequestResult) {
 		return
 	}
 	if global.Env().IsDebug {
-		resBody := string(resp.GetRawBody())
 		if global.Env().IsDebug {
-			log.Debug(resBody)
+			log.Debug(string(respBody))
 		}
 	}
 
 	if item.ResponseAssert != nil {
-		resBody := string(resp.GetRawBody())
 		if global.Env().IsDebug {
-			log.Trace(resBody)
+			log.Trace(string(respBody))
 		}
 
 		if item.ResponseAssert.Status > 0 {
 			if resp.StatusCode() != item.ResponseAssert.Status {
 				if global.Env().IsDebug {
-					log.Error("invalid status,", item.Request.Url, resp.StatusCode(), len(resBody), resBody)
+					log.Error("invalid status,", item.Request.Url, resp.StatusCode(), len(respBody), string(respBody))
 				}
 				result.Valid = false
 				return
@@ -182,9 +187,9 @@ func doRequest(item RequestItem) (result RequestResult) {
 		}
 
 		if item.ResponseAssert.BodySize > 0 {
-			if len(resBody) != item.ResponseAssert.BodySize {
+			if len(respBody) != item.ResponseAssert.BodySize {
 				if global.Env().IsDebug {
-					log.Trace("invalid response size,", item.Request.Url, resp.StatusCode(), len(resBody), resBody)
+					log.Trace("invalid response size,", item.Request.Url, resp.StatusCode(), len(respBody), respBody)
 				}
 				result.Valid = false
 				return
@@ -192,9 +197,9 @@ func doRequest(item RequestItem) (result RequestResult) {
 		}
 
 		if item.ResponseAssert.Body != "" {
-			if len(resBody) != len(item.ResponseAssert.Body) || string(resBody) != item.ResponseAssert.Body {
+			if len(respBody) != len(item.ResponseAssert.Body) || string(respBody) != item.ResponseAssert.Body {
 				if global.Env().IsDebug {
-					log.Trace("invalid response,", item.Request.Url, resp.StatusCode(), ",", len(resBody), ",", resBody)
+					log.Trace("invalid response,", item.Request.Url, resp.StatusCode(), ",", len(respBody), ",", respBody)
 				}
 				result.Valid = false
 				return
@@ -224,35 +229,7 @@ func (cfg *LoadGenerator) Run(config AppConfig) {
 			}
 
 			//replace url variable
-			if v.Request.HasVariable {
-				if util.ContainStr(v.Request.Url, "$") {
-					v.Request.Url = config.ReplaceVariable(v.Request.Url)
-				}
-			}
-
-			if v.Request.RepeatBodyNTimes>0{
-				buffer:=bytes.Buffer{}
-				for i:=0;i<v.Request.RepeatBodyNTimes;i++{
-					if v.Request.HasVariable {
-						body:=v.Request.Body
-						if util.ContainStr(body, "$") {
-							body = config.ReplaceVariable(body)
-						}
-						buffer.WriteString(body)
-					}else{
-						buffer.WriteString(v.Request.Body)
-					}
-				}
-				v.Request.Body=buffer.String()
-			}else{
-				if v.Request.HasVariable {
-					body:=v.Request.Body
-					if util.ContainStr(body, "$") {
-						body = config.ReplaceVariable(body)
-					}
-					v.Request.Body=body
-				}
-			}
+			v=prepareRequest(v,config)
 
 			result := doRequest(v)
 
@@ -286,6 +263,59 @@ func (cfg *LoadGenerator) Run(config AppConfig) {
 	}
 
 	cfg.statsAggregator <- stats
+}
+
+func prepareRequest(v RequestItem,config AppConfig) RequestItem {
+
+	if v.Request.HasVariable {
+		if util.ContainStr(v.Request.Url, "$") {
+			v.Request.Url = config.ReplaceVariable(v.Request.Url)
+		}
+	}
+
+	if v.Request.RepeatBodyNTimes>0{
+		buffer:=bytes.Buffer{}
+		for i:=0;i<v.Request.RepeatBodyNTimes;i++{
+			if v.Request.HasVariable {
+				body:=v.Request.Body
+				if util.ContainStr(body, "$") {
+					body = config.ReplaceVariable(body)
+				}
+				buffer.WriteString(body)
+			}else{
+				buffer.WriteString(v.Request.Body)
+			}
+		}
+		v.Request.Body=buffer.String()
+	}else{
+		if v.Request.HasVariable {
+			body:=v.Request.Body
+			if util.ContainStr(body, "$") {
+				body = config.ReplaceVariable(body)
+			}
+			v.Request.Body=body
+		}
+	}
+
+
+	return v
+}
+
+func (cfg *LoadGenerator) Warmup(config AppConfig) {
+	log.Info("warmup started")
+	for _, v := range config.Requests {
+		v=prepareRequest(v,config)
+		result,respBody,err := doRequestWithFlag(v)
+		log.Infof("[%v] %v",v.Request.Method,v.Request.Url)
+		log.Infof("status: %v,%v,%v",result.Status,err,string(respBody))
+		if result.Status>=400||result.Status==0{
+			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")
+			reader := bufio.NewReader(os.Stdin)
+			reader.ReadString('\n')
+		}
+	}
+
+	log.Info("warmup finished")
 }
 
 func (cfg *LoadGenerator) Stop() {

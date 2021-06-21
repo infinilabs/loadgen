@@ -39,6 +39,9 @@ func startLoader(cfg AppConfig) {
 
 	loadGen := NewLoadGenerator(duration, goroutines,statsAggregator)
 
+	loadGen.Warmup(cfg)
+
+
 	for i := 0; i < goroutines; i++ {
 		go loadGen.Run(cfg)
 	}
