@@ -3,6 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+	"time"
+
 	"infini.sh/framework"
 	"infini.sh/framework/core/env"
 	"infini.sh/framework/core/global"
@@ -10,15 +14,12 @@ import (
 	"infini.sh/framework/core/util"
 	stats "infini.sh/framework/plugins/stats_statsd"
 	"infini.sh/loadgen/config"
-	"os"
-	"os/signal"
-	"time"
 )
 
 var duration int = 10
 var goroutines int = 2
 var rateLimit int = -1
-var compress bool =false
+var compress bool = false
 var statsAggregator chan *LoadStats
 
 func init() {
@@ -37,17 +38,16 @@ func startLoader(cfg AppConfig) {
 
 	flag.Parse() // Scan the arguments list
 
-	loadGen := NewLoadGenerator(duration, goroutines,statsAggregator)
+	loadGen := NewLoadGenerator(duration, goroutines, statsAggregator)
 
 	loadGen.Warmup(cfg)
-
 
 	for i := 0; i < goroutines; i++ {
 		go loadGen.Run(cfg)
 	}
 
 	responders := 0
-	aggStats := LoadStats{MinRequestTime: time.Minute,StatusCode: map[int]int{}}
+	aggStats := LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 
 	for responders < goroutines {
 		select {
@@ -63,12 +63,12 @@ func startLoader(cfg AppConfig) {
 			aggStats.MaxRequestTime = util.MaxDuration(aggStats.MaxRequestTime, stats.MaxRequestTime)
 			aggStats.MinRequestTime = util.MinDuration(aggStats.MinRequestTime, stats.MinRequestTime)
 
-			for k,v:=range stats.StatusCode{
-				oldV,ok:=aggStats.StatusCode[k]
-				if !ok{
-					oldV=0
+			for k, v := range stats.StatusCode {
+				oldV, ok := aggStats.StatusCode[k]
+				if !ok {
+					oldV = 0
 				}
-				aggStats.StatusCode[k]=oldV+v
+				aggStats.StatusCode[k] = oldV + v
 			}
 
 			responders++
@@ -85,18 +85,18 @@ func startLoader(cfg AppConfig) {
 	roughReqRate := float64(aggStats.NumRequests) / float64(duration)
 	roughReqBytesRate := float64(aggStats.TotReqSize) / float64(duration)
 	roughBytesRate := float64(aggStats.TotRespSize+aggStats.TotReqSize) / float64(duration)
-	roughAvgReqTime := (time.Duration(duration)*time.Second) / time.Duration(aggStats.NumRequests)
+	roughAvgReqTime := (time.Duration(duration) * time.Second) / time.Duration(aggStats.NumRequests)
 
 	reqRate := float64(aggStats.NumRequests) / avgThreadDur.Seconds()
 	avgReqTime := aggStats.TotDuration / time.Duration(aggStats.NumRequests)
 	bytesRate := float64(aggStats.TotRespSize+aggStats.TotReqSize) / avgThreadDur.Seconds()
 
-	fmt.Printf("\n%v requests in %v, %v sent, %v received\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize)},util.ByteValue{float64(aggStats.TotRespSize)})
+	fmt.Printf("\n%v requests in %v, %v sent, %v received\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize)}, util.ByteValue{float64(aggStats.TotRespSize)})
 
 	fmt.Println("\n[Loadgen Client Metrics]")
-	fmt.Printf("Requests/sec:\t\t%.2f\n" +
-		"Request Traffic/sec:\t%v\n" +
-		"Total Transfer/sec:\t%v\n" +
+	fmt.Printf("Requests/sec:\t\t%.2f\n"+
+		"Request Traffic/sec:\t%v\n"+
+		"Total Transfer/sec:\t%v\n"+
 		"Avg Req Time:\t\t%v\n",
 		roughReqRate,
 		util.ByteValue{roughReqBytesRate},
@@ -106,14 +106,16 @@ func startLoader(cfg AppConfig) {
 	fmt.Printf("Slowest Request:\t%v\n", aggStats.MaxRequestTime)
 	fmt.Printf("Number of Errors:\t%v\n", aggStats.NumErrs)
 	fmt.Printf("Number of Invalid:\t%v\n", aggStats.NumInvalid)
-	for k,v:=range aggStats.StatusCode{
-		fmt.Printf("Status %v:\t\t%v\n", k,v)
+	for k, v := range aggStats.StatusCode {
+		fmt.Printf("Status %v:\t\t%v\n", k, v)
 	}
 
 	fmt.Printf("\n[Estimated Server Metrics]\nRequests/sec:\t\t%.2f\nTransfer/sec:\t\t%v\nAvg Req Time:\t\t%v\n", reqRate, util.ByteValue{bytesRate}, avgReqTime)
 
 	fmt.Println("\n")
 
+	time.Sleep(5 * time.Second)
+	os.Exit(1)
 
 }
 
@@ -142,7 +144,6 @@ func startLoader(cfg AppConfig) {
 //	}
 //}
 
-
 func main() {
 
 	terminalHeader := ("   __   ___  _      ___  ___   __    __\n")
@@ -168,22 +169,22 @@ func main() {
 		module.RegisterUserPlugin(stats.StatsDModule{})
 		module.Start()
 
-		loaderConfig:= AppConfig{}
+		loaderConfig := AppConfig{}
 
-		items:=[]RequestItem{}
-		ok,err:=env.ParseConfig("requests",&items)
-		if ok&&err!=nil{
+		items := []RequestItem{}
+		ok, err := env.ParseConfig("requests", &items)
+		if ok && err != nil {
 			panic(err)
 		}
 
-		variables:=[]Variable{}
-		ok,err=env.ParseConfig("variables",&variables)
-		if ok&&err!=nil{
+		variables := []Variable{}
+		ok, err = env.ParseConfig("variables", &variables)
+		if ok && err != nil {
 			panic(err)
 		}
 
-		loaderConfig.Requests=items
-		loaderConfig.Variable=variables
+		loaderConfig.Requests = items
+		loaderConfig.Variable = variables
 		loaderConfig.Init()
 
 		//TODO warm up
@@ -196,6 +197,6 @@ func main() {
 	}, func() {
 	})
 
-	time.Sleep(1*time.Second)
+	time.Sleep(1 * time.Second)
 
 }
