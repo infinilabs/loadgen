@@ -212,10 +212,11 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 
 var regex = regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
 
-func (cfg *LoadGenerator) Run(config AppConfig) {
+func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 	start := time.Now()
 
+	current := 0
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
 
 		for _, v := range config.Requests {
@@ -260,9 +261,15 @@ func (cfg *LoadGenerator) Run(config AppConfig) {
 				v = 0
 			}
 			stats.StatusCode[result.Status] = v + 1
+
+			current++
+			if countLimit > 0 && current == countLimit {
+				goto END
+			}
 		}
 	}
 
+END:
 	cfg.statsAggregator <- stats
 }
 
@@ -307,7 +314,7 @@ func (cfg *LoadGenerator) Warmup(config AppConfig) {
 		v = prepareRequest(v, config)
 		result, respBody, err := doRequestWithFlag(v)
 		log.Infof("[%v] %v", v.Request.Method, v.Request.Url)
-		log.Infof("status: %v,%v,%v", result.Status, err, string(respBody))
+		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 256))
 		if result.Status >= 400 || result.Status == 0 {
 			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")
 			reader := bufio.NewReader(os.Stdin)

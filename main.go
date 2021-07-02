@@ -46,6 +46,10 @@ func startLoader(cfg AppConfig) {
 
 	var reqPerGoroutines int
 	if reqLimit > 0 {
+		if goroutines > reqLimit {
+			goroutines = reqLimit - 1
+		}
+
 		reqPerGoroutines = int((reqLimit + 1) / goroutines)
 	}
 	leftDoc := reqLimit - 1 //9
@@ -54,21 +58,27 @@ func startLoader(cfg AppConfig) {
 		thisDoc := -1
 		if reqPerGoroutines > 0 {
 			if leftDoc > 0 {
-				if leftDoc > reqPerGoroutines {
-					thisDoc = reqPerGoroutines //thisDoc=1
-				} else {
-					thisDoc = leftDoc
-				}
-				// fmt.Println("thisDoc:", thisDoc)
 
-				leftDoc = leftDoc - thisDoc //9-1=8
-				// fmt.Println("leftDoc:", thisDoc)
+				if i == goroutines-1 {
+					// fmt.Println("already last one:", leftDoc)
+					thisDoc = leftDoc
+				} else {
+					if leftDoc > reqPerGoroutines {
+						thisDoc = reqPerGoroutines //thisDoc=1
+					} else {
+						thisDoc = leftDoc
+					}
+					// fmt.Println("thisDoc:", thisDoc)
+
+					leftDoc = leftDoc - thisDoc //9-1=8
+					// fmt.Println("leftDoc:", thisDoc)
+				}
 
 			}
 		}
 
 		// fmt.Println("go:", i, ",docs:", thisDoc)
-		//go loadGen.Run(cfg,thisDoc)
+		go loadGen.Run(cfg, thisDoc)
 	}
 
 	responders := 0
