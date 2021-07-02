@@ -4,17 +4,18 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/tls"
+	"os"
+	"regexp"
+	"strconv"
+	"sync/atomic"
+	"time"
+
 	log "github.com/cihub/seelog"
 	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/rate"
 	"infini.sh/framework/core/stats"
 	"infini.sh/framework/core/util"
 	"infini.sh/framework/lib/fasthttp"
-	"os"
-	"regexp"
-	"strconv"
-	"sync/atomic"
-	"time"
 )
 
 const (
@@ -29,7 +30,7 @@ type LoadGenerator struct {
 }
 
 type LoadStats struct {
-	TotReqSize    int64
+	TotReqSize     int64
 	TotRespSize    int64
 	TotDuration    time.Duration
 	MinRequestTime time.Duration
@@ -43,10 +44,10 @@ type LoadStats struct {
 func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadStats,
 ) (rt *LoadGenerator) {
 
-	httpClient=fasthttp.Client{
+	httpClient = fasthttp.Client{
 		MaxConnsPerHost: goroutines,
-		ReadTimeout: time.Second * 60,
-		WriteTimeout: time.Second * 60,
+		ReadTimeout:     time.Second * 60,
+		WriteTimeout:    time.Second * 60,
 		TLSConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
 
@@ -57,12 +58,12 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 var httpClient fasthttp.Client
 
 func doRequest(item RequestItem) (result RequestResult) {
-	result,_,_=doRequestWithFlag(item)
+	result, _, _ = doRequestWithFlag(item)
 	return result
 }
-func doRequestWithFlag(item RequestItem) (result RequestResult,respBody []byte,err error) {
+func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte, err error) {
 
-	result= RequestResult{}
+	result = RequestResult{}
 
 	result.Valid = true
 
@@ -134,16 +135,16 @@ func doRequestWithFlag(item RequestItem) (result RequestResult,respBody []byte,e
 	result.RequestSize = req.GetRequestLength()
 	result.ResponseSize = resp.GetResponseLength()
 
-	respBody=resp.GetRawBody()
+	respBody = resp.GetRawBody()
 
-	if resp.StatusCode()==0{
-		if err!=nil{
+	if resp.StatusCode() == 0 {
+		if err != nil {
 			if global.Env().IsDebug {
 				log.Error(err)
 				log.Error(string(respBody))
 			}
 		}
-	}else if resp.StatusCode()!=200{
+	} else if resp.StatusCode() != 200 {
 		if global.Env().IsDebug {
 			log.Error(err)
 			log.Error(string(respBody))
@@ -152,7 +153,7 @@ func doRequestWithFlag(item RequestItem) (result RequestResult,respBody []byte,e
 
 	//skip verify
 	if err != nil {
-		result.Error=true
+		result.Error = true
 		if global.Env().IsDebug {
 			log.Error(err)
 			log.Error(string(respBody))
@@ -212,7 +213,7 @@ func doRequestWithFlag(item RequestItem) (result RequestResult,respBody []byte,e
 var regex = regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
 
 func (cfg *LoadGenerator) Run(config AppConfig) {
-	stats := &LoadStats{MinRequestTime: time.Minute,StatusCode: map[int]int{}}
+	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 	start := time.Now()
 
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
@@ -221,31 +222,31 @@ func (cfg *LoadGenerator) Run(config AppConfig) {
 
 			if rateLimit > 0 {
 			RetryRateLimit:
-				if !rate.GetRateLimiter("loadgen", "requests", int(rateLimit),1,time.Minute*1).Allow() {
-				//if !rate.GetRateLimiterPerSecond("loadgen", "requests", int(rateLimit)).Allow() {
+				if !rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Minute*1).Allow() {
+					//if !rate.GetRateLimiterPerSecond("loadgen", "requests", int(rateLimit)).Allow() {
 					time.Sleep(10 * time.Millisecond)
 					goto RetryRateLimit
 				}
 			}
 
 			//replace url variable
-			v=prepareRequest(v,config)
+			v = prepareRequest(v, config)
 
 			result := doRequest(v)
 
-			if !result.Valid{
+			if !result.Valid {
 				stats.NumInvalid++
 			}
 
-			if result.Error{
+			if result.Error {
 				stats.NumErrs++
 			}
 
-			if result.RequestSize>0{
+			if result.RequestSize > 0 {
 				stats.TotReqSize += int64(result.RequestSize)
 			}
 
-			if result.ResponseSize>0{
+			if result.ResponseSize > 0 {
 				stats.TotRespSize += int64(result.ResponseSize)
 			}
 
@@ -254,18 +255,18 @@ func (cfg *LoadGenerator) Run(config AppConfig) {
 			stats.MaxRequestTime = util.MaxDuration(result.Duration, stats.MaxRequestTime)
 			stats.MinRequestTime = util.MinDuration(result.Duration, stats.MinRequestTime)
 			stats.NumRequests++
-			v,ok:=stats.StatusCode[result.Status]
-			if !ok{
-				v=0
+			v, ok := stats.StatusCode[result.Status]
+			if !ok {
+				v = 0
 			}
-			stats.StatusCode[result.Status]=v+1
+			stats.StatusCode[result.Status] = v + 1
 		}
 	}
 
 	cfg.statsAggregator <- stats
 }
 
-func prepareRequest(v RequestItem,config AppConfig) RequestItem {
+func prepareRequest(v RequestItem, config AppConfig) RequestItem {
 
 	if v.Request.HasVariable {
 		if util.ContainStr(v.Request.Url, "$") {
@@ -273,30 +274,29 @@ func prepareRequest(v RequestItem,config AppConfig) RequestItem {
 		}
 	}
 
-	if v.Request.RepeatBodyNTimes>0{
-		buffer:=bytes.Buffer{}
-		for i:=0;i<v.Request.RepeatBodyNTimes;i++{
+	if v.Request.RepeatBodyNTimes > 0 {
+		buffer := bytes.Buffer{}
+		for i := 0; i < v.Request.RepeatBodyNTimes; i++ {
 			if v.Request.HasVariable {
-				body:=v.Request.Body
+				body := v.Request.Body
 				if util.ContainStr(body, "$") {
 					body = config.ReplaceVariable(body)
 				}
 				buffer.WriteString(body)
-			}else{
+			} else {
 				buffer.WriteString(v.Request.Body)
 			}
 		}
-		v.Request.Body=buffer.String()
-	}else{
+		v.Request.Body = buffer.String()
+	} else {
 		if v.Request.HasVariable {
-			body:=v.Request.Body
+			body := v.Request.Body
 			if util.ContainStr(body, "$") {
 				body = config.ReplaceVariable(body)
 			}
-			v.Request.Body=body
+			v.Request.Body = body
 		}
 	}
-
 
 	return v
 }
@@ -304,11 +304,11 @@ func prepareRequest(v RequestItem,config AppConfig) RequestItem {
 func (cfg *LoadGenerator) Warmup(config AppConfig) {
 	log.Info("warmup started")
 	for _, v := range config.Requests {
-		v=prepareRequest(v,config)
-		result,respBody,err := doRequestWithFlag(v)
-		log.Infof("[%v] %v",v.Request.Method,v.Request.Url)
-		log.Infof("status: %v,%v,%v",result.Status,err,string(respBody))
-		if result.Status>=400||result.Status==0{
+		v = prepareRequest(v, config)
+		result, respBody, err := doRequestWithFlag(v)
+		log.Infof("[%v] %v", v.Request.Method, v.Request.Url)
+		log.Infof("status: %v,%v,%v", result.Status, err, string(respBody))
+		if result.Status >= 400 || result.Status == 0 {
 			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")
 			reader := bufio.NewReader(os.Stdin)
 			reader.ReadString('\n')

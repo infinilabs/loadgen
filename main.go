@@ -19,6 +19,7 @@ import (
 var duration int = 10
 var goroutines int = 2
 var rateLimit int = -1
+var reqLimit int = -1
 var compress bool = false
 var statsAggregator chan *LoadStats
 
@@ -26,6 +27,7 @@ func init() {
 	flag.IntVar(&goroutines, "c", 1, "Number of concurrent threads")
 	flag.IntVar(&duration, "d", 5, "Duration of tests in seconds")
 	flag.IntVar(&rateLimit, "r", -1, "Max requests per second (fixed QPS)")
+	flag.IntVar(&reqLimit, "l", -1, "Limit total requests")
 	flag.BoolVar(&compress, "compress", false, "Compress requests with gzip")
 }
 
@@ -42,8 +44,31 @@ func startLoader(cfg AppConfig) {
 
 	loadGen.Warmup(cfg)
 
+	var reqPerGoroutines int
+	if reqLimit > 0 {
+		reqPerGoroutines = int((reqLimit + 1) / goroutines)
+	}
+	leftDoc := reqLimit - 1 //9
+
 	for i := 0; i < goroutines; i++ {
-		go loadGen.Run(cfg)
+		thisDoc := -1
+		if reqPerGoroutines > 0 {
+			if leftDoc > 0 {
+				if leftDoc > reqPerGoroutines {
+					thisDoc = reqPerGoroutines //thisDoc=1
+				} else {
+					thisDoc = leftDoc
+				}
+				// fmt.Println("thisDoc:", thisDoc)
+
+				leftDoc = leftDoc - thisDoc //9-1=8
+				// fmt.Println("leftDoc:", thisDoc)
+
+			}
+		}
+
+		// fmt.Println("go:", i, ",docs:", thisDoc)
+		//go loadGen.Run(cfg,thisDoc)
 	}
 
 	responders := 0
