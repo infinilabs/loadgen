@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"time"
 
+	log "github.com/cihub/seelog"
 	"infini.sh/framework"
 	"infini.sh/framework/core/env"
 	"infini.sh/framework/core/global"
@@ -53,6 +54,11 @@ func startLoader(cfg AppConfig) {
 		reqPerGoroutines = int((reqLimit + 1) / goroutines)
 	}
 	leftDoc := reqLimit - 1 //9
+
+	if leftDoc == 0 {
+		log.Warn("only one request was executed\n")
+		return
+	}
 
 	for i := 0; i < goroutines; i++ {
 		thisDoc := -1
@@ -149,9 +155,6 @@ func startLoader(cfg AppConfig) {
 
 	fmt.Println("\n")
 
-	time.Sleep(5 * time.Second)
-	os.Exit(1)
-
 }
 
 //func addProcessToCgroup(filepath string, pid int) {
@@ -227,6 +230,8 @@ func main() {
 
 		go func() {
 			startLoader(loaderConfig)
+			time.Sleep(1 * time.Second)
+			os.Exit(1)
 		}()
 
 	}, func() {
