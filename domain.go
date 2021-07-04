@@ -18,12 +18,13 @@ package main
 
 import (
 	"fmt"
-	"infini.sh/framework/core/global"
-	"infini.sh/framework/core/util"
 	"math/rand"
-	log "github.com/cihub/seelog"
 	"strings"
 	"time"
+
+	log "github.com/cihub/seelog"
+	"infini.sh/framework/core/global"
+	"infini.sh/framework/core/util"
 )
 
 type Request struct {
@@ -94,8 +95,15 @@ func (config *AppConfig)GetVariable(key string)string  {
 		}
 	 }
 
+	 
+
 	d,ok:=dict[key]
 	if ok{
+
+		if len(d)==1 {
+		 return d[0]
+		}
+
 		offset:=rand.Intn(len(d)-1)
 		return d[offset]
 	}
