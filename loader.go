@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"crypto/tls"
+	"infini.sh/framework/lib/bytebufferpool"
 	"os"
 	"regexp"
 	"strconv"
@@ -211,11 +211,14 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 }
 
 var regex = regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
+var bufferPool =bytebufferpool.NewPool(65536,655360)
 
 func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 	start := time.Now()
 
+	buffer:=bufferPool.Get()
+	defer bufferPool.Put(buffer)
 	current := 0
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
 
@@ -230,8 +233,9 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 				}
 			}
 
+			buffer.Reset()
 			//replace url variable
-			v = prepareRequest(v, config)
+			v = prepareRequest(v, config,buffer)
 
 			result := doRequest(v)
 
@@ -273,7 +277,7 @@ END:
 	cfg.statsAggregator <- stats
 }
 
-func prepareRequest(v RequestItem, config AppConfig) RequestItem {
+func prepareRequest(v RequestItem, config AppConfig,buffer *bytebufferpool.ByteBuffer) RequestItem {
 
 	if v.Request.HasVariable {
 		if util.ContainStr(v.Request.Url, "$") {
@@ -282,7 +286,6 @@ func prepareRequest(v RequestItem, config AppConfig) RequestItem {
 	}
 
 	if v.Request.RepeatBodyNTimes > 0 {
-		buffer := bytes.Buffer{}
 		for i := 0; i < v.Request.RepeatBodyNTimes; i++ {
 			if v.Request.HasVariable {
 				body := v.Request.Body
@@ -310,8 +313,11 @@ func prepareRequest(v RequestItem, config AppConfig) RequestItem {
 
 func (cfg *LoadGenerator) Warmup(config AppConfig) {
 	log.Info("warmup started")
+	buffer:=bufferPool.Get()
+	defer bufferPool.Put(buffer)
 	for _, v := range config.Requests {
-		v = prepareRequest(v, config)
+		buffer.Reset()
+		v = prepareRequest(v, config,buffer)
 		result, respBody, err := doRequestWithFlag(v)
 		log.Infof("[%v] %v", v.Request.Method, v.Request.Url)
 		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 256))
