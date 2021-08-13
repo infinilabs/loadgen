@@ -108,10 +108,11 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 				panic(err)
 			}
 		} else {
-			req.SetBodyStreamWriter(func(w *bufio.Writer) {
-				w.Write(reqBytes)
-				w.Flush()
-			})
+			req.SetBody(reqBytes)
+			//req.SetBodyStreamWriter(func(w *bufio.Writer) {
+			//	w.Write(reqBytes)
+			//	w.Flush()
+			//})
 		}
 	}
 
@@ -292,9 +293,9 @@ func prepareRequest(v RequestItem, config AppConfig,buffer *bytebufferpool.ByteB
 				if util.ContainStr(body, "$") {
 					body = config.ReplaceVariable(body)
 				}
-				buffer.WriteString(body)
+				buffer.Write(util.UnsafeStringToBytes(body))
 			} else {
-				buffer.WriteString(v.Request.Body)
+				buffer.Write(util.UnsafeStringToBytes(v.Request.Body))
 			}
 		}
 		v.Request.Body = buffer.String()

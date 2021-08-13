@@ -104,7 +104,7 @@ func (config *AppConfig)GetVariable(key string)string  {
 		 return d[0]
 		}
 
-		offset:=rand.Intn(len(d)-1)
+		offset:=rand.Intn(len(d))
 		return d[offset]
 	}
 	return "not_found"

@@ -117,7 +117,7 @@ func startLoader(cfg AppConfig) {
 	}
 
 	if aggStats.NumRequests == 0 {
-		fmt.Println("Error: No statistics collected / no requests found\n")
+		fmt.Println("Error: No statistics collected / no requests found")
 		return
 	}
 
@@ -153,7 +153,7 @@ func startLoader(cfg AppConfig) {
 
 	fmt.Printf("\n[Estimated Server Metrics]\nRequests/sec:\t\t%.2f\nTransfer/sec:\t\t%v\nAvg Req Time:\t\t%v\n", reqRate, util.ByteValue{bytesRate}, avgReqTime)
 
-	fmt.Println("\n")
+	fmt.Println("")
 
 }
 
