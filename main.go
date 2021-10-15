@@ -204,7 +204,7 @@ func main() {
 	})
 	app.Start(func() {
 
-		module.RegisterUserPlugin(stats.StatsDModule{})
+		module.RegisterUserPlugin(&stats.StatsDModule{})
 		module.Start()
 
 		loaderConfig := AppConfig{}

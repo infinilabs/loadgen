@@ -70,7 +70,8 @@ func (config *AppConfig)Init()  {
 		variables[name]=i
 	}
 }
-
+//"2021-08-23T11:13:36.274"
+const TsLayout = "2006-01-02T15:04:05.000"
 func (config *AppConfig)GetVariable(key string)string  {
 	 x,ok:=variables[key]
 	 if ok{
@@ -87,7 +88,13 @@ func (config *AppConfig)GetVariable(key string)string  {
 		}
 
 	 	if x.Type=="now_utc"{
+
 	 		return time.Now().UTC().String()
+		}
+
+	 	if x.Type=="now_utc_lite"{
+
+	 		return time.Now().UTC().Format(TsLayout)
 		}
 
 	 	if x.Type=="now_unix"{
