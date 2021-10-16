@@ -2,8 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
-	"compress/gzip"
 	"crypto/tls"
 	"infini.sh/framework/lib/bytebufferpool"
 	"os"
@@ -59,20 +57,6 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 
 var httpClient fasthttp.Client
 
-func gzipBest(a *[]byte) []byte {
-	var b bytes.Buffer
-	gz,err := gzip.NewWriterLevel(&b,gzip.BestCompression)
-	if err != nil {
-		panic(err)
-	}
-	if _, err := gz.Write(*a); err != nil {
-		gz.Close()
-		panic(err)
-	}
-	gz.Close()
-	return b.Bytes()
-}
-
 func doRequest(item RequestItem) (result RequestResult) {
 	result, _, _ = doRequestWithFlag(item)
 	return result
@@ -117,17 +101,17 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 	if len(item.Request.Body) > 0 {
 		reqBytes := []byte(item.Request.Body)
 		if compress {
-			//_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), reqBytes, fasthttp.CompressBestSpeed)
-			//if err != nil {
-			//	panic(err)
-			//}
+			_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), reqBytes, fasthttp.CompressBestCompression)
+			if err != nil {
+				panic(err)
+			}
 
-			data:=gzipBest(&reqBytes)
-			req.Header.Set("Accept-Encoding", "gzip")
-			req.Header.Set("content-encoding", "gzip")
+			//data:= util.GzipCompress(&reqBytes,gzip.BestCompression)
+			req.Header.Set(fasthttp.HeaderAcceptEncoding, "gzip")
+			req.Header.Set(fasthttp.HeaderContentEncoding, "gzip")
 			req.Header.Set("X-PayLoad-Compressed",util.ToString(true))
-			req.Header.Set("X-PayLoad-Compressed-Size",util.ToString(req.GetBodyLength()))
-			req.SwapBody(data)
+			//req.Header.Set("X-PayLoad-Compressed-Size",util.ToString(len(data)))
+			//req.SwapBody(data)
 
 		} else {
 			req.SetBody(reqBytes)
