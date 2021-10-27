@@ -65,6 +65,11 @@ func (config *AppConfig)Init()  {
 		name:=util.TrimSpaces(i.Name)
 		if len(i.Path)>0{
 			lines:=util.FileGetLines(i.Path)
+			for i,v:=range lines{
+				v=strings.ReplaceAll(v,"\\","\\\\")
+				v=strings.ReplaceAll(v,"\"","\\\"")
+				lines[i]=v
+			}
 			dict[name]=lines
 		}
 		variables[name]=i
