@@ -22,6 +22,7 @@ pipeline {
                     sh label: 'package-arm6', script: 'cd /home/jenkins/go/src/infini.sh/loadgen/bin && tar cfz ${WORKSPACE}/loadgen-$VERSION-$BUILD_NUMBER-arm6.tar.gz loadgen-armv6 loadgen.yml'
                     sh label: 'package-arm7', script: 'cd /home/jenkins/go/src/infini.sh/loadgen/bin && tar cfz ${WORKSPACE}/loadgen-$VERSION-$BUILD_NUMBER-arm7.tar.gz loadgen-armv7 loadgen.yml'
                     sh label: 'package-arm64', script: 'cd /home/jenkins/go/src/infini.sh/loadgen/bin && tar cfz ${WORKSPACE}/loadgen-$VERSION-$BUILD_NUMBER-arm64.tar.gz loadgen-arm64 loadgen.yml'
+                    fingerprint 'loadgen-$VERSION-$BUILD_NUMBER-*.tar.gz'
                     archiveArtifacts artifacts: 'loadgen-$VERSION-$BUILD_NUMBER-*.tar.gz', fingerprint: true, followSymlinks: true, onlyIfSuccessful: true
                 }
             }
