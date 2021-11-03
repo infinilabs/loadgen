@@ -190,7 +190,7 @@ func main() {
 	terminalHeader += ("/ /__/ \\_//  _  \\/ /_// /_\\\\//__/ /\\  /\n")
 	terminalHeader += ("\\____|___/\\_/ \\_/___,'\\____/\\__/\\_\\ \\/\n\n")
 
-	terminalFooter := ("Thanks for using LOADGEN, have a good day!")
+	terminalFooter := ("")
 
 	app := framework.NewApp("loadgen", "A http load generator and testing suit.",
 		util.TrimSpaces(config.Version), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
