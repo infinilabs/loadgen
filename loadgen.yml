@@ -4,12 +4,15 @@ statsd:
   port: 8125
   namespace: loadgen.
 variables:
-  - name: ip
-    type: file
-    path: test/ip.txt
-  - name: user
-    type: file
-    path: test/user.txt
+#  - name: ip
+#    type: file
+#    path: test/ip.txt
+#  - name: message
+#    type: file
+#    path: test/log.txt
+#  - name: user
+#    type: file
+#    path: test/user.txt
   - name: id
     type: sequence
   - name: uuid
@@ -21,29 +24,10 @@ variables:
   - name: now_unix
     type: now_unix
 requests:
-#  - request:
-#      has_variable: true
-#      method: POST
-#      basic_auth:
-#        username: elastic
-#        password: pass
-#      url: http://localhost:8000/medcl/doc/$[[user]]
-##      url: http://localhost:9200/medcl/doc/$[[user]]
-#      body: '{"name":"$[[user]]","ip":"$[[ip]]"}'
-#  - request:
-#      method: GET
-#      basic_auth:
-#        username: elastic
-#        password: ZBdkVQUUdF1Sir4X4BGB
-#      url: http://localhost:8000/medcl/_search
-#      url: https://192.168.3.98:9200/medcl/_search
   - request:
-      method: POST
       has_variable: true
+      method: GET
       basic_auth:
-        username: elastic
-        password: changeme
-      url: http://localhost:8001/_bulk
-      body_repeat_times: 1
-#      body: "{ \"index\" : { \"_index\" : \"medcl-a\",\"_type\":\"doc\", \"_id\" : \"$[[id]]\" } }\n{ \"id\" : \"$[[id]]\" }\n"
-      body: "{ \"index\" : { \"_index\" : \"medcl-a\",\"_type\":\"doc\", \"_id\" : \"$[[id]]\" } }\n{ \"id\" : \"$[[id]]\",\"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
+        username: tesla
+        password: password
+      url: http://localhost:8000/_search?q=$[[id]]
