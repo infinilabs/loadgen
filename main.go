@@ -202,7 +202,7 @@ func main() {
 	global.RegisterShutdownCallback(func() {
 		//os.Exit(1)
 	})
-	app.Setup(func() {
+	if app.Setup(func() {
 
 		module.RegisterUserPlugin(&stats.StatsDModule{})
 		module.Start()
@@ -234,10 +234,10 @@ func main() {
 			os.Exit(1)
 		}()
 
-	}, func() {
-	},nil)
+	}, nil,nil){
+		app.Run()
+	}
 
-	app.Run()
 	time.Sleep(1 * time.Second)
 
 }
