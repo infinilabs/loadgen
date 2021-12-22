@@ -16,9 +16,9 @@ pipeline {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE'){
                     sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make clean config build-linux'
-                    sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make clean config build-arm'
-                    sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make clean config build-darwin'
-                    sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make clean config build-win'
+                    sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make config build-arm'
+                    sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make config build-darwin'
+                    sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make config build-win'
                     sh label: 'package-linux64', script: 'cd /home/jenkins/go/src/infini.sh/loadgen/bin && tar cfz ${WORKSPACE}/loadgen-$VERSION-$BUILD_NUMBER-linux64.tar.gz loadgen-linux64 loadgen.yml'
                     sh label: 'package-linux32', script: 'cd /home/jenkins/go/src/infini.sh/loadgen/bin && tar cfz ${WORKSPACE}/loadgen-$VERSION-$BUILD_NUMBER-linux32.tar.gz loadgen-linux32 loadgen.yml'
                     sh label: 'package-arm5', script: 'cd /home/jenkins/go/src/infini.sh/loadgen/bin && tar cfz ${WORKSPACE}/loadgen-$VERSION-$BUILD_NUMBER-arm5.tar.gz loadgen-armv5 loadgen.yml'
