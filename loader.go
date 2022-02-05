@@ -61,6 +61,7 @@ func doRequest(item RequestItem) (result RequestResult) {
 	result, _, _ = doRequestWithFlag(item)
 	return result
 }
+
 func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte, err error) {
 
 	result = RequestResult{}
@@ -224,6 +225,7 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 	start := time.Now()
 
+	limiter:=rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Second*1)
 	buffer:=bufferPool.Get()
 	defer bufferPool.Put(buffer)
 	current := 0
@@ -233,7 +235,7 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 
 			if rateLimit > 0 {
 			RetryRateLimit:
-				if !rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Minute*1).Allow() {
+				if !limiter.Allow() {
 					//if !rate.GetRateLimiterPerSecond("loadgen", "requests", int(rateLimit)).Allow() {
 					time.Sleep(10 * time.Millisecond)
 					goto RetryRateLimit
