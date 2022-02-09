@@ -202,12 +202,14 @@ func main() {
 	global.RegisterShutdownCallback(func() {
 		//os.Exit(1)
 	})
+
+	loaderConfig := AppConfig{}
+
 	if app.Setup(func() {
 
 		module.RegisterUserPlugin(&stats.StatsDModule{})
 		module.Start()
 
-		loaderConfig := AppConfig{}
 
 		items := []RequestItem{}
 		ok, err := env.ParseConfig("requests", &items)
@@ -225,6 +227,11 @@ func main() {
 		loaderConfig.Variable = variables
 		loaderConfig.Init()
 
+
+
+
+	}, func() {
+
 		//TODO warm up
 		//TODO show confirm message and confirm
 
@@ -234,7 +241,7 @@ func main() {
 			os.Exit(1)
 		}()
 
-	}, nil,nil){
+	},nil){
 		app.Run()
 	}
 
