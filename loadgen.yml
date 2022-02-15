@@ -26,8 +26,12 @@ variables:
 requests:
   - request:
       has_variable: true
-      method: GET
+      method: POST
       basic_auth:
         username: tesla
         password: password
-      url: http://localhost:8000/_search?q=$[[id]]
+      #url: http://localhost:8000/_search?q=$[[id]]
+      url: http://localhost:8000/_bulk
+      body_repeat_times: 1000
+      body: "{ \"create\" : { \"_index\" : \".infini_metrics\",\"_type\":\"doc\", \"_id\" : \"$[[id]]-$[[uuid]]\" } }\n{ \"id\" : \"$[[id]]\",\"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
+
