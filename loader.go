@@ -45,9 +45,9 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 ) (rt *LoadGenerator) {
 
 	httpClient = fasthttp.Client{
-		MaxConnsPerHost: goroutines,
 		ReadTimeout:     time.Second * 60,
-		WriteTimeout:    time.Second * 60,
+	    WriteTimeout:    time.Second * 60,
+		MaxConnsPerHost: goroutines,
 		TLSConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
 
@@ -131,7 +131,7 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 
 	start := time.Now()
 
-	err = httpClient.Do(req, resp)
+	err = httpClient.DoTimeout(req, resp,60*time.Second)
 
 	result.Duration = time.Since(start)
 	result.Status = resp.StatusCode()
