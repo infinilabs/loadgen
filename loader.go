@@ -7,15 +7,15 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"sync"
 	"sync/atomic"
-	"time"
-
 	log "github.com/cihub/seelog"
 	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/rate"
 	"infini.sh/framework/core/stats"
 	"infini.sh/framework/core/util"
 	"infini.sh/framework/lib/fasthttp"
+	"time"
 )
 
 const (
@@ -57,17 +57,18 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 
 var httpClient fasthttp.Client
 
-func doRequest(item RequestItem) (result RequestResult) {
-	result, _, _ = doRequestWithFlag(item)
-	return result
+var resultPool = &sync.Pool {
+	New: func()interface{} {
+	return &RequestResult{}
+	},
 }
 
-func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte, err error) {
+func doRequest(item *RequestItem,result *RequestResult){
+	doRequestWithFlag(item,result)
+}
 
-	result = RequestResult{}
-
+func doRequestWithFlag(item *RequestItem,result *RequestResult) (respBody []byte, err error) {
 	result.Valid = true
-
 	req := fasthttp.AcquireRequest()
 	req.Reset()
 	req.ResetBody()
@@ -93,10 +94,6 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 	}
 
 	req.Header.Add("User-Agent", UserAgent)
-
-
-
-	//req.Header.Set("Connection", "close")
 	req.Header.Set("X-PayLoad-Size",util.ToString(len(item.Request.Body)))
 
 	if len(item.Request.Body) > 0 {
@@ -107,19 +104,12 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 				panic(err)
 			}
 
-			//data:= util.GzipCompress(&reqBytes,gzip.BestCompression)
 			req.Header.Set(fasthttp.HeaderAcceptEncoding, "gzip")
 			req.Header.Set(fasthttp.HeaderContentEncoding, "gzip")
 			req.Header.Set("X-PayLoad-Compressed",util.ToString(true))
-			//req.Header.Set("X-PayLoad-Compressed-Size",util.ToString(len(data)))
-			//req.SwapBody(data)
 
 		} else {
 			req.SetBody(reqBytes)
-			//req.SetBodyStreamWriter(func(w *bufio.Writer) {
-			//	w.Write(reqBytes)
-			//	w.Flush()
-			//})
 		}
 	}
 
@@ -231,12 +221,14 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	current := 0
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
 
+		result:=resultPool.Get().(*RequestResult)
+		defer resultPool.Put(result)
+
 		for _, v := range config.Requests {
 
 			if rateLimit > 0 {
 			RetryRateLimit:
 				if !limiter.Allow() {
-					//if !rate.GetRateLimiterPerSecond("loadgen", "requests", int(rateLimit)).Allow() {
 					time.Sleep(10 * time.Millisecond)
 					goto RetryRateLimit
 				}
@@ -244,9 +236,11 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 
 			buffer.Reset()
 			//replace url variable
-			v = prepareRequest(v, config,buffer)
+			v.Request.bodyBuffer=buffer
+			v.prepareRequest(config)
 
-			result := doRequest(v)
+			result.Reset()
+			doRequest(&v,result)
 
 			if !result.Valid {
 				stats.NumInvalid++
@@ -286,7 +280,7 @@ END:
 	cfg.statsAggregator <- stats
 }
 
-func prepareRequest(v RequestItem, config AppConfig,buffer *bytebufferpool.ByteBuffer) RequestItem {
+func (v *RequestItem)prepareRequest(config AppConfig) {
 
 	if v.Request.HasVariable {
 		if util.ContainStr(v.Request.Url, "$") {
@@ -301,33 +295,36 @@ func prepareRequest(v RequestItem, config AppConfig,buffer *bytebufferpool.ByteB
 				if util.ContainStr(body, "$") {
 					body = config.ReplaceVariable(body)
 				}
-				buffer.Write(util.UnsafeStringToBytes(body))
+				v.Request.bodyBuffer.Write(util.UnsafeStringToBytes(body))
 			} else {
-				buffer.Write(util.UnsafeStringToBytes(v.Request.Body))
+				v.Request.bodyBuffer.Write(util.UnsafeStringToBytes(v.Request.Body))
 			}
 		}
-		v.Request.Body = buffer.String()
 	} else {
 		if v.Request.HasVariable {
 			body := v.Request.Body
 			if util.ContainStr(body, "$") {
 				body = config.ReplaceVariable(body)
 			}
-			v.Request.Body = body
+			v.Request.bodyBuffer.WriteString(body)
 		}
 	}
-
-	return v
 }
 
 func (cfg *LoadGenerator) Warmup(config AppConfig) {
 	log.Info("warmup started")
 	buffer:=bufferPool.Get()
 	defer bufferPool.Put(buffer)
+	result:=resultPool.Get().(*RequestResult)
+	defer resultPool.Put(result)
 	for _, v := range config.Requests {
+
+		result.Reset()
 		buffer.Reset()
-		v = prepareRequest(v, config,buffer)
-		result, respBody, err := doRequestWithFlag(v)
+
+		v.Request.bodyBuffer=buffer
+		v.prepareRequest(config)
+		respBody, err := doRequestWithFlag(&v,result)
 		log.Infof("[%v] %v", v.Request.Method, v.Request.Url)
 		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 256))
 		if result.Status >= 400 || result.Status == 0 {

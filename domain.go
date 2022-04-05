@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"infini.sh/framework/lib/bytebufferpool"
 	"math/rand"
 	"strings"
 	"time"
@@ -32,6 +33,9 @@ type Request struct {
 	Method string `config:"method"`
 	Url    string `config:"url"`
 	Body   string `config:"body"`
+
+	bodyBuffer   *bytebufferpool.ByteBuffer
+
 	RepeatBodyNTimes   int `config:"body_repeat_times"`
 	Headers []map[string]string `config:"headers"`
 	BasicAuth struct{
@@ -149,4 +153,13 @@ type RequestResult struct {
 	Error bool
 	Valid bool
 	Duration time.Duration
+}
+
+func (result *RequestResult) Reset()  {
+	result.Error=false
+	result.Status=0
+	result.RequestSize=0
+	result.ResponseSize=0
+	result.Valid=false
+	result.Duration=0
 }
