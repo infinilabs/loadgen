@@ -44,6 +44,16 @@ type Request struct {
 	} `config:"basic_auth"`
 }
 
+func (req *Request) GetBodyBytes()[]byte  {
+	if req.bodyBuffer.Len()>0{
+		return req.bodyBuffer.Bytes()
+	}
+	if req.Body!=""{
+		return util.UnsafeStringToBytes(req.Body)
+	}
+	return nil
+}
+
 type ResponseAssert struct {
 	Status int    `config:"status"`
 	Body   string `config:"body"`

@@ -94,12 +94,12 @@ func doRequestWithFlag(item *RequestItem,result *RequestResult) (respBody []byte
 	}
 
 	req.Header.Add("User-Agent", UserAgent)
-	req.Header.Set("X-PayLoad-Size",util.ToString(len(item.Request.Body)))
+	bodyBytes:=item.Request.GetBodyBytes()
+	req.Header.Set("X-PayLoad-Size",util.ToString(len(bodyBytes)))
 
-	if len(item.Request.Body) > 0 {
-		reqBytes := []byte(item.Request.Body)
+	if len(bodyBytes) > 0 {
 		if compress {
-			_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), reqBytes, fasthttp.CompressBestCompression)
+			_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), bodyBytes, fasthttp.CompressBestCompression)
 			if err != nil {
 				panic(err)
 			}
@@ -109,14 +109,14 @@ func doRequestWithFlag(item *RequestItem,result *RequestResult) (respBody []byte
 			req.Header.Set("X-PayLoad-Compressed",util.ToString(true))
 
 		} else {
-			req.SetBody(reqBytes)
+			req.SetBody(bodyBytes)
 		}
 	}
 
 	if global.Env().IsDebug {
 		log.Tracef(item.Request.Method)
 		log.Tracef(item.Request.Url)
-		log.Tracef(item.Request.Body)
+		log.Tracef(string(bodyBytes))
 	}
 
 	start := time.Now()
