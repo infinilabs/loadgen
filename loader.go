@@ -281,19 +281,37 @@ END:
 }
 
 func (v *RequestItem)prepareRequest(config AppConfig) {
-
+	runtimeVariables:=map[string]string{}
 	if v.Request.HasVariable {
+		if len(v.Request.RuntimeVariables)>0{
+			for _,kv:=range v.Request.RuntimeVariables{
+				for  k,v:=range kv{
+					runtimeVariables[k]=config.GetVariable(runtimeVariables,v)
+					//log.Info("get:",k,":",runtimeVariables[k])
+				}
+			}
+		}
+
 		if util.ContainStr(v.Request.Url, "$") {
-			v.Request.Url = config.ReplaceVariable(v.Request.Url)
+			v.Request.Url = config.ReplaceVariable(runtimeVariables,v.Request.Url)
 		}
 	}
 
 	if v.Request.RepeatBodyNTimes > 0 {
 		for i := 0; i < v.Request.RepeatBodyNTimes; i++ {
 			if v.Request.HasVariable {
+
+				if len(v.Request.RuntimeBodyLineVariables)>0{
+					for _,kv:=range v.Request.RuntimeBodyLineVariables{
+						for  k,v:=range kv{
+							runtimeVariables[k]=config.GetVariable(runtimeVariables,v)
+						}
+					}
+				}
+
 				body := v.Request.Body
 				if util.ContainStr(body, "$") {
-					body = config.ReplaceVariable(body)
+					body = config.ReplaceVariable(runtimeVariables,body)
 				}
 				v.Request.bodyBuffer.Write(util.UnsafeStringToBytes(body))
 			} else {
@@ -302,11 +320,22 @@ func (v *RequestItem)prepareRequest(config AppConfig) {
 		}
 	} else {
 		if v.Request.HasVariable {
+
+			if len(v.Request.RuntimeBodyLineVariables)>0{
+				for _,kv:=range v.Request.RuntimeBodyLineVariables{
+					for  k,v:=range kv{
+						runtimeVariables[k]=config.GetVariable(runtimeVariables,v)
+					}
+				}
+			}
+
 			body := v.Request.Body
 			if util.ContainStr(body, "$") {
-				body = config.ReplaceVariable(body)
+				body = config.ReplaceVariable(runtimeVariables,body)
 			}
 			v.Request.bodyBuffer.WriteString(body)
+		}else {
+			v.Request.bodyBuffer.Write(util.UnsafeStringToBytes(v.Request.Body))
 		}
 	}
 }
@@ -325,7 +354,7 @@ func (cfg *LoadGenerator) Warmup(config AppConfig) {
 		v.Request.bodyBuffer=buffer
 		v.prepareRequest(config)
 		respBody, err := doRequestWithFlag(&v,result)
-		log.Infof("[%v] %v", v.Request.Method, v.Request.Url)
+		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url,util.SubString(string(respBody), 0, 256))
 		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 256))
 		if result.Status >= 400 || result.Status == 0 {
 			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")

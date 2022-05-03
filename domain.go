@@ -42,6 +42,9 @@ type Request struct {
 		Username string `config:"username"`
 		Password string `config:"password"`
 	} `config:"basic_auth"`
+
+	RuntimeVariables []map[string]string `config:"runtime_variables"`
+	RuntimeBodyLineVariables []map[string]string `config:"runtime_body_line_variables"`
 }
 
 func (req *Request) GetBodyBytes()[]byte  {
@@ -91,7 +94,15 @@ func (config *AppConfig)Init()  {
 }
 //"2021-08-23T11:13:36.274"
 const TsLayout = "2006-01-02T15:04:05.000"
-func (config *AppConfig)GetVariable(key string)string  {
+func (config *AppConfig)GetVariable(runtimeKV map[string]string,key string)string  {
+
+	if runtimeKV!=nil{
+		x,ok:=runtimeKV[key]
+		if ok{
+			return x
+		}
+	}
+
 	 x,ok:=variables[key]
 	 if ok{
 	 	if x.Type=="sequence"{
@@ -121,8 +132,6 @@ func (config *AppConfig)GetVariable(key string)string  {
 		}
 	 }
 
-	 
-
 	d,ok:=dict[key]
 	if ok{
 
@@ -136,13 +145,13 @@ func (config *AppConfig)GetVariable(key string)string  {
 	return "not_found"
 }
 
-func (config *AppConfig)ReplaceVariable(v string) string {
+func (config *AppConfig)ReplaceVariable(runtimeKV map[string]string,v string) string {
 	matchs :=regex.FindAllString(v,-1)
 	for _,v1:=range matchs {
 		old :=v1
 		v1=util.TrimLeftStr(v1,"$[[")
 		v1=util.TrimRightStr(v1,"]]")
-		variable:=config.GetVariable(v1)
+		variable:=config.GetVariable(runtimeKV,v1)
 		v=strings.ReplaceAll(v, old,fmt.Sprintf("%s",util.TrimSpaces(variable)))
 	}
 	if global.Env().IsDebug{

@@ -27,11 +27,20 @@ requests:
   - request:
       has_variable: true
       method: POST
+      runtime_variables:
+        - id1: id
+        - id2: id
+        - id3: id
+      runtime_body_line_variables:
+        - id1: id
+        - id2: id
+        - id3: id
       basic_auth:
-        username: tesla
-        password: password
+        username: ingest
+        password: managemDFSDFSDFent
       #url: http://localhost:8000/_search?q=$[[id]]
       url: http://localhost:8000/_bulk
       body_repeat_times: 1000
-      body: "{ \"create\" : { \"_index\" : \".infini_metrics\",\"_type\":\"doc\", \"_id\" : \"$[[id]]-$[[uuid]]\" } }\n{ \"id\" : \"$[[id]]\",\"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
+      body: "{ \"create\" : { \"_index\" : \"test\",\"_type\":\"_doc\", \"_id\" : \"$[[uuid]]\" } }\n{ \"id\" : \"$[[uuid]]\",\"id1\" : \"$[[id1]]\",\"id2\" : \"$[[id1]]\", \"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
+      #body: "{ \"create\" : { \"_index\" : \"test\",\"_type\":\"doc\", \"_id\" : \"$[[id]]\" } }\n{ \"id\" : \"$[[uuid]]\",\"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
 
