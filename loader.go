@@ -3,18 +3,19 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
-	"infini.sh/framework/lib/bytebufferpool"
-	"os"
-	"regexp"
-	"strconv"
-	"sync"
-	"sync/atomic"
 	log "github.com/cihub/seelog"
 	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/rate"
 	"infini.sh/framework/core/stats"
 	"infini.sh/framework/core/util"
+	"infini.sh/framework/lib/bytebufferpool"
 	"infini.sh/framework/lib/fasthttp"
+	"io"
+	"os"
+	"regexp"
+	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -63,66 +64,24 @@ var resultPool = &sync.Pool {
 	},
 }
 
-func doRequest(item *RequestItem,result *RequestResult){
-	doRequestWithFlag(item,result)
-}
+func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *RequestResult) (respBody []byte, err error) {
 
-func doRequestWithFlag(item *RequestItem,result *RequestResult) (respBody []byte, err error) {
+	result.Reset()
 	result.Valid = true
+	buffer.Reset()
 	req := fasthttp.AcquireRequest()
 	req.Reset()
 	req.ResetBody()
+	defer fasthttp.ReleaseRequest(req)
+	//replace url variable
+	item.prepareRequest(req, buffer)
 	resp := fasthttp.AcquireResponse()
 	resp.Reset()
 	resp.ResetBody()
-	defer fasthttp.ReleaseRequest(req)
 	defer fasthttp.ReleaseResponse(resp)
 
-	req.Header.SetMethod(item.Request.Method)
-	req.SetRequestURI(item.Request.Url)
-
-	if item.Request.BasicAuth.Username != "" {
-		req.SetBasicAuth(item.Request.BasicAuth.Username, item.Request.BasicAuth.Password)
-	}
-
-	if len(item.Request.Headers) > 0 {
-		for _, v := range item.Request.Headers {
-			for k1, v1 := range v {
-				req.Header.Set(k1, v1)
-			}
-		}
-	}
-
-	req.Header.Add("User-Agent", UserAgent)
-	bodyBytes:=item.Request.GetBodyBytes()
-	req.Header.Set("X-PayLoad-Size",util.ToString(len(bodyBytes)))
-
-	if len(bodyBytes) > 0 {
-		if compress {
-			_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), bodyBytes, fasthttp.CompressBestCompression)
-			if err != nil {
-				panic(err)
-			}
-
-			req.Header.Set(fasthttp.HeaderAcceptEncoding, "gzip")
-			req.Header.Set(fasthttp.HeaderContentEncoding, "gzip")
-			req.Header.Set("X-PayLoad-Compressed",util.ToString(true))
-
-		} else {
-			req.SetBody(bodyBytes)
-		}
-	}
-
-	if global.Env().IsDebug {
-		log.Tracef(item.Request.Method)
-		log.Tracef(item.Request.Url)
-		log.Tracef(string(bodyBytes))
-	}
-
 	start := time.Now()
-
-	err = httpClient.DoTimeout(req, resp,60*time.Second)
-
+	err = httpClient.DoTimeout(req, resp, 60*time.Second)
 	result.Duration = time.Since(start)
 	result.Status = resp.StatusCode()
 
@@ -234,13 +193,7 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 				}
 			}
 
-			buffer.Reset()
-			//replace url variable
-			v.Request.bodyBuffer=buffer
-			v.prepareRequest(config)
-
-			result.Reset()
-			doRequest(&v,result)
+			doRequest(&v, buffer, result)
 
 			if !result.Valid {
 				stats.NumInvalid++
@@ -280,62 +233,89 @@ END:
 	cfg.statsAggregator <- stats
 }
 
-func (v *RequestItem)prepareRequest(config AppConfig) {
-	runtimeVariables:=map[string]string{}
-	if v.Request.HasVariable {
-		if len(v.Request.RuntimeVariables)>0{
-			for _,kv:=range v.Request.RuntimeVariables{
-				for  k,v:=range kv{
-					runtimeVariables[k]=config.GetVariable(runtimeVariables,v)
-					//log.Info("get:",k,":",runtimeVariables[k])
+func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebufferpool.ByteBuffer) {
+
+	//init runtime variables
+	runtimeVariables := map[string]string{}
+	if v.Request.HasVariable() {
+		if len(v.Request.RuntimeVariables) > 0 {
+			for _, kv := range v.Request.RuntimeVariables {
+				for k, v := range kv {
+					runtimeVariables[k] = GetVariable(runtimeVariables, v)
 				}
 			}
 		}
+	}
 
-		if util.ContainStr(v.Request.Url, "$") {
-			v.Request.Url = config.ReplaceVariable(runtimeVariables,v.Request.Url)
+	//prepare url
+	url := v.Request.Url
+	if v.Request.urlHasTemplate {
+		url = v.Request.urlTemplate.ExecuteFuncString(func(w io.Writer, tag string) (int, error) {
+			variable := GetVariable(runtimeVariables, tag)
+			return w.Write([]byte(variable))
+		})
+	}
+
+	req.SetRequestURI(url)
+
+	//prepare method
+	req.Header.SetMethod(v.Request.Method)
+
+	if v.Request.BasicAuth.Username != "" {
+		req.SetBasicAuth(v.Request.BasicAuth.Username, v.Request.BasicAuth.Password)
+	}
+
+	if len(v.Request.Headers) > 0 {
+		for _, v := range v.Request.Headers {
+			for k1, v1 := range v {
+				req.Header.Set(k1, v1)
+			}
 		}
 	}
 
-	if v.Request.RepeatBodyNTimes > 0 {
-		for i := 0; i < v.Request.RepeatBodyNTimes; i++ {
-			if v.Request.HasVariable {
+	req.Header.Add("User-Agent", UserAgent)
 
-				if len(v.Request.RuntimeBodyLineVariables)>0{
-					for _,kv:=range v.Request.RuntimeBodyLineVariables{
-						for  k,v:=range kv{
-							runtimeVariables[k]=config.GetVariable(runtimeVariables,v)
+	//prepare request body
+	for i := 0; i < v.Request.RepeatBodyNTimes; i++ {
+		body := v.Request.Body
+		if len(body) > 0 {
+			if v.Request.bodyHasTemplate {
+				if len(v.Request.RuntimeBodyLineVariables) > 0 {
+					for _, kv := range v.Request.RuntimeBodyLineVariables {
+						for k, v := range kv {
+							runtimeVariables[k] = GetVariable(runtimeVariables, v)
 						}
 					}
 				}
 
-				body := v.Request.Body
-				if util.ContainStr(body, "$") {
-					body = config.ReplaceVariable(runtimeVariables,body)
+				body = v.Request.bodyTemplate.ExecuteFuncString(func(w io.Writer, tag string) (int, error) {
+					variable := GetVariable(runtimeVariables, tag)
+					return w.Write([]byte(variable))
+				})
+			}
+			if len(body) > 0 {
+				if global.Env().IsDebug {
+					log.Trace(util.SubString(body, 0, 1024))
 				}
-				v.Request.bodyBuffer.Write(util.UnsafeStringToBytes(body))
-			} else {
-				v.Request.bodyBuffer.Write(util.UnsafeStringToBytes(v.Request.Body))
+				bodyBuffer.WriteString(body)
 			}
 		}
-	} else {
-		if v.Request.HasVariable {
+	}
 
-			if len(v.Request.RuntimeBodyLineVariables)>0{
-				for _,kv:=range v.Request.RuntimeBodyLineVariables{
-					for  k,v:=range kv{
-						runtimeVariables[k]=config.GetVariable(runtimeVariables,v)
-					}
-				}
+	if bodyBuffer.Len() > 0 {
+		req.Header.Set("X-PayLoad-Size", util.ToString(bodyBuffer.Len()))
+		if compress {
+			_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), bodyBuffer.B, fasthttp.CompressBestCompression)
+			if err != nil {
+				panic(err)
 			}
 
-			body := v.Request.Body
-			if util.ContainStr(body, "$") {
-				body = config.ReplaceVariable(runtimeVariables,body)
-			}
-			v.Request.bodyBuffer.WriteString(body)
-		}else {
-			v.Request.bodyBuffer.Write(util.UnsafeStringToBytes(v.Request.Body))
+			req.Header.Set(fasthttp.HeaderAcceptEncoding, "gzip")
+			req.Header.Set(fasthttp.HeaderContentEncoding, "gzip")
+			req.Header.Set("X-PayLoad-Compressed", util.ToString(true))
+
+		} else {
+			req.SetBody(bodyBuffer.B)
 		}
 	}
 }
@@ -348,12 +328,8 @@ func (cfg *LoadGenerator) Warmup(config AppConfig) {
 	defer resultPool.Put(result)
 	for _, v := range config.Requests {
 
-		result.Reset()
-		buffer.Reset()
+		respBody, err := doRequest(&v, buffer, result)
 
-		v.Request.bodyBuffer=buffer
-		v.prepareRequest(config)
-		respBody, err := doRequestWithFlag(&v,result)
 		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url,util.SubString(string(respBody), 0, 256))
 		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 256))
 		if result.Status >= 400 || result.Status == 0 {
