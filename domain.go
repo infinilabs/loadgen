@@ -39,8 +39,8 @@ type Request struct {
 		Password string `config:"password"`
 	} `config:"basic_auth"`
 
-	RuntimeVariables         []map[string]string `config:"runtime_variables"`
-	RuntimeBodyLineVariables []map[string]string `config:"runtime_body_line_variables"`
+	RuntimeVariables         map[string]string `config:"runtime_variables"`
+	RuntimeBodyLineVariables map[string]string `config:"runtime_body_line_variables"`
 
 	urlHasTemplate  bool
 	bodyHasTemplate bool

@@ -239,10 +239,8 @@ func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebuff
 	runtimeVariables := map[string]string{}
 	if v.Request.HasVariable() {
 		if len(v.Request.RuntimeVariables) > 0 {
-			for _, kv := range v.Request.RuntimeVariables {
-				for k, v := range kv {
-					runtimeVariables[k] = GetVariable(runtimeVariables, v)
-				}
+			for k, v := range v.Request.RuntimeVariables {
+				runtimeVariables[k] = GetVariable(runtimeVariables, v)
 			}
 		}
 	}
@@ -281,10 +279,8 @@ func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebuff
 		if len(body) > 0 {
 			if v.Request.bodyHasTemplate {
 				if len(v.Request.RuntimeBodyLineVariables) > 0 {
-					for _, kv := range v.Request.RuntimeBodyLineVariables {
-						for k, v := range kv {
-							runtimeVariables[k] = GetVariable(runtimeVariables, v)
-						}
+					for k, v := range v.Request.RuntimeBodyLineVariables {
+						runtimeVariables[k] = GetVariable(runtimeVariables, v)
 					}
 				}
 

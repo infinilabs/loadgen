@@ -6,13 +6,13 @@ statsd:
 variables:
 #  - name: ip
 #    type: file
-#    path: test/ip.txt
+#    path: dict/ip.txt
 #  - name: message
 #    type: file
-#    path: test/log.txt
+#    path: dict/log.txt
 #  - name: user
 #    type: file
-#    path: test/user.txt
+#    path: dict/user.txt
   - name: id
     type: sequence
   - name: uuid
@@ -23,23 +23,22 @@ variables:
     type: now_utc
   - name: now_unix
     type: now_unix
+  - name: suffix
+    type: range
+    from: 10
+    to: 15
 requests:
   - request:
-      has_variable: true
       method: POST
       runtime_variables:
-        - id1: id
-        - id2: id
-        - id3: id
+        batch_no: id
       runtime_body_line_variables:
-        - id4: id
-        - id5: id
-        - id6: id
+        routing_no: uuid
       basic_auth:
         username: ingest
-        password: managemDFSDFSDFent
+        password: password
       #url: http://localhost:8000/_search?q=$[[id]]
-      url: http://localhost:8000/_bulk
-      body_repeat_times: 1
-      body: "{ \"create\" : { \"_index\" : \"test\",\"_type\":\"_doc\", \"_id\" : \"$[[uuid]]\" } }\n{ \"id\" : \"$[[uuid]]\",\"id1\" : \"$[[id1]]\",\"id2\" : \"$[[id1]]\", \"field1\" : \"$[[user]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
+      url: http://192.168.3.188:9206/_bulk
+      body_repeat_times: 10
+      body: "{ \"create\" : { \"_index\" : \"test-$[[suffix]]\",\"_type\":\"doc\", \"_id\" : \"$[[uuid]]\" , \"routing\" : \"$[[routing_no]]\" } }\n{ \"id\" : \"$[[uuid]]\",\"routing_no\" : \"$[[routing_no]]\",\"batch_number\" : \"$[[batch_no]]\", \"random_no\" : \"$[[suffix]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
 
