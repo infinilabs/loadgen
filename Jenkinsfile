@@ -20,7 +20,7 @@ pipeline {
                     sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make config build-darwin'
                     sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make config build-win'
 
-                   sh label: 'copy-configs', script: 'cd /home/jenkins/go/src/infini.sh/loadgen/bin && cp ../dict . -R && cp ../LICENSE . && cp ../NOTICE .'
+                   sh label: 'copy-configs', script: 'cd /home/jenkins/go/src/infini.sh/loadgen && cp -R dict bin && cp ../framework/LICENSE bin && cat ../framework/NOTICE NOTICE > bin/NOTICE'
 
                    sh label: 'package-linux-amd64', script: 'cd /home/jenkins/go/src/infini.sh/loadgen/bin && tar cfz ${WORKSPACE}/loadgen-$VERSION-$BUILD_NUMBER-linux-amd64.tar.gz loadgen-linux-amd64 loadgen.yml LICENSE NOTICE dict'
                    sh label: 'package-linux-386', script: 'cd /home/jenkins/go/src/infini.sh/loadgen/bin && tar cfz ${WORKSPACE}/loadgen-$VERSION-$BUILD_NUMBER-linux-386.tar.gz loadgen-linux-386 loadgen.yml LICENSE NOTICE dict'
