@@ -82,6 +82,7 @@ func (config *AppConfig) Init() {
 		name := util.TrimSpaces(i.Name)
 		if len(i.Path) > 0 {
 			lines := util.FileGetLines(i.Path)
+			log.Debugf("path:%v, num of lines:%v", i.Path, len(lines))
 			for i, v := range lines {
 				v = strings.ReplaceAll(v, "\\", "\\\\")
 				v = strings.ReplaceAll(v, "\"", "\\\"")
@@ -156,7 +157,6 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 		if len(d) == 1 {
 			return d[0]
 		}
-
 		offset := rand.Intn(len(d))
 		return d[offset]
 	}
