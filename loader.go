@@ -46,7 +46,7 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 
 	httpClient = fasthttp.Client{
 		ReadTimeout:     time.Second * 60,
-	    WriteTimeout:    time.Second * 60,
+		WriteTimeout:    time.Second * 60,
 		MaxConnsPerHost: goroutines,
 		TLSConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
@@ -94,10 +94,8 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 
 	req.Header.Add("User-Agent", UserAgent)
 
-
-
 	//req.Header.Set("Connection", "close")
-	req.Header.Set("X-PayLoad-Size",util.ToString(len(item.Request.Body)))
+	req.Header.Set("X-PayLoad-Size", util.ToString(len(item.Request.Body)))
 
 	if len(item.Request.Body) > 0 {
 		reqBytes := []byte(item.Request.Body)
@@ -110,7 +108,7 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 			//data:= util.GzipCompress(&reqBytes,gzip.BestCompression)
 			req.Header.Set(fasthttp.HeaderAcceptEncoding, "gzip")
 			req.Header.Set(fasthttp.HeaderContentEncoding, "gzip")
-			req.Header.Set("X-PayLoad-Compressed",util.ToString(true))
+			req.Header.Set("X-PayLoad-Compressed", util.ToString(true))
 			//req.Header.Set("X-PayLoad-Compressed-Size",util.ToString(len(data)))
 			//req.SwapBody(data)
 
@@ -131,7 +129,7 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 
 	start := time.Now()
 
-	err = httpClient.DoTimeout(req, resp,60*time.Second)
+	err = httpClient.DoTimeout(req, resp, 60*time.Second)
 
 	result.Duration = time.Since(start)
 	result.Status = resp.StatusCode()
@@ -219,15 +217,14 @@ func doRequestWithFlag(item RequestItem) (result RequestResult, respBody []byte,
 }
 
 var regex = regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
-var bufferPool =bytebufferpool.NewPool(65536,655360)
 
 func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 	start := time.Now()
 
-	limiter:=rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Second*1)
-	buffer:=bufferPool.Get()
-	defer bufferPool.Put(buffer)
+	limiter := rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Second*1)
+	buffer := bytebufferpool.Get("loadgen")
+	defer bytebufferpool.Put("loadgen", buffer)
 	current := 0
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
 
@@ -244,7 +241,7 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 
 			buffer.Reset()
 			//replace url variable
-			v = prepareRequest(v, config,buffer)
+			v = prepareRequest(v, config, buffer)
 
 			result := doRequest(v)
 
@@ -286,7 +283,7 @@ END:
 	cfg.statsAggregator <- stats
 }
 
-func prepareRequest(v RequestItem, config AppConfig,buffer *bytebufferpool.ByteBuffer) RequestItem {
+func prepareRequest(v RequestItem, config AppConfig, buffer *bytebufferpool.ByteBuffer) RequestItem {
 
 	if v.Request.HasVariable {
 		if util.ContainStr(v.Request.Url, "$") {
@@ -322,14 +319,14 @@ func prepareRequest(v RequestItem, config AppConfig,buffer *bytebufferpool.ByteB
 
 func (cfg *LoadGenerator) Warmup(config AppConfig) {
 	log.Info("warmup started")
-	buffer:=bufferPool.Get()
-	defer bufferPool.Put(buffer)
+	buffer := bytebufferpool.Get("loadgen")
+	defer bytebufferpool.Put("loadgen", buffer)
 	for _, v := range config.Requests {
 		buffer.Reset()
-		v = prepareRequest(v, config,buffer)
+		v = prepareRequest(v, config, buffer)
 		result, respBody, err := doRequestWithFlag(v)
 		log.Infof("[%v] %v", v.Request.Method, v.Request.Url)
-		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 256))
+		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(util.UnsafeBytesToString(respBody), 0, 256))
 		if result.Status >= 400 || result.Status == 0 {
 			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")
 			reader := bufio.NewReader(os.Stdin)
