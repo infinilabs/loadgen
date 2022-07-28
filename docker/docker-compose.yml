@@ -1,0 +1,17 @@
+version: "3.5"
+
+services:
+  infini-gateway:
+    image: infinilabs/loadgen:latest
+#    build:
+#      context: .
+#      dockerfile: ./Dockerfile
+
+    ports:
+      - 2900:2900
+    container_name: "infini-loadgen"
+    volumes:
+      - ../loadgen.yml:/loadgen.yml
+
+volumes:
+  dist:

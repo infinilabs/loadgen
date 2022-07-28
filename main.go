@@ -10,7 +10,6 @@ import (
 	log "github.com/cihub/seelog"
 	"infini.sh/framework"
 	"infini.sh/framework/core/env"
-	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/module"
 	"infini.sh/framework/core/util"
 	stats "infini.sh/framework/plugins/stats_statsd"
@@ -39,7 +38,7 @@ func startLoader(cfg AppConfig) {
 
 	signal.Notify(sigChan, os.Interrupt)
 
-	flag.Parse() // Scan the arguments list
+	flag.Parse()
 
 	loadGen := NewLoadGenerator(duration, goroutines, statsAggregator)
 
@@ -53,7 +52,7 @@ func startLoader(cfg AppConfig) {
 
 		reqPerGoroutines = int((reqLimit + 1) / goroutines)
 	}
-	leftDoc := reqLimit - 1 //9
+	leftDoc := reqLimit - 1
 
 	if leftDoc == 0 {
 		log.Warn("only one request was executed\n")
@@ -66,24 +65,18 @@ func startLoader(cfg AppConfig) {
 			if leftDoc > 0 {
 
 				if i == goroutines-1 {
-					// fmt.Println("already last one:", leftDoc)
 					thisDoc = leftDoc
 				} else {
 					if leftDoc > reqPerGoroutines {
-						thisDoc = reqPerGoroutines //thisDoc=1
+						thisDoc = reqPerGoroutines
 					} else {
 						thisDoc = leftDoc
 					}
-					// fmt.Println("thisDoc:", thisDoc)
-
-					leftDoc = leftDoc - thisDoc //9-1=8
-					// fmt.Println("leftDoc:", thisDoc)
+					leftDoc = leftDoc - thisDoc
 				}
-
 			}
 		}
 
-		// fmt.Println("go:", i, ",docs:", thisDoc)
 		go loadGen.Run(cfg, thisDoc)
 	}
 
@@ -193,15 +186,11 @@ func main() {
 	terminalFooter := ("")
 
 	app := framework.NewApp("loadgen", "A http load generator and testing suit.",
-		util.TrimSpaces(config.Version), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
+		util.TrimSpaces(config.Version),util.TrimSpaces(config.BuildNumber), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
 
 	app.Init(nil)
 
 	defer app.Shutdown()
-
-	global.RegisterShutdownCallback(func() {
-		//os.Exit(1)
-	})
 
 	loaderConfig := AppConfig{}
 
@@ -209,7 +198,6 @@ func main() {
 
 		module.RegisterUserPlugin(&stats.StatsDModule{})
 		module.Start()
-
 
 		items := []RequestItem{}
 		ok, err := env.ParseConfig("requests", &items)
@@ -228,12 +216,7 @@ func main() {
 		loaderConfig.Init()
 
 
-
-
 	}, func() {
-
-		//TODO warm up
-		//TODO show confirm message and confirm
 
 		go func() {
 			startLoader(loaderConfig)

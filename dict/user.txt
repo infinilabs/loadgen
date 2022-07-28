@@ -1,0 +1,4 @@
+medcl
+elastic
+"google" abc
+\"abcd"
