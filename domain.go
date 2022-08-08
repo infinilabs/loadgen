@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"github.com/valyala/fasttemplate"
+	"infini.sh/framework/core/errors"
 	"math/rand"
 	"strings"
 	"time"
@@ -63,6 +64,7 @@ type Variable struct {
 	Type string `config:"type"`
 	Name string `config:"name"`
 	Path string `config:"path"`
+	Format string `config:"format"`
 
 	//type: range
 	From int `config:"from"`
@@ -140,6 +142,11 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 			return util.GetUUID()
 		case "now_local":
 			return time.Now().Local().String()
+		case "now_with_format":
+			if x.Format==""{
+				panic(errors.Errorf("date format is not set, [%v]",x))
+			}
+			return time.Now().Format(x.Format)
 		case "now_utc":
 			return time.Now().UTC().String()
 		case "now_utc_lite":

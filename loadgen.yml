@@ -4,15 +4,9 @@ statsd:
   port: 8125
   namespace: loadgen.
 variables:
-#  - name: ip
-#    type: file
-#    path: dict/ip.txt
-#  - name: message
-#    type: file
-#    path: dict/log.txt
-#  - name: user
-#    type: file
-#    path: dict/user.txt
+  - name: ip
+    type: file
+    path: dict/ip.txt
   - name: id
     type: sequence
   - name: uuid
@@ -23,10 +17,13 @@ variables:
     type: now_utc
   - name: now_unix
     type: now_unix
+  - name: now_with_format
+    type: now_with_format #https://programming.guide/go/format-parse-string-time-date-example.html
+    format: "2006-01-02T15:04:05-0700" #2006-01-02T15:04:05
   - name: suffix
     type: range
     from: 10
-    to: 15
+    to: 10
 requests:
   - request:
       method: POST
@@ -36,9 +33,9 @@ requests:
         routing_no: uuid
       basic_auth:
         username: ingest
-        password: password
-      #url: http://localhost:8000/_search?q=$[[id]]
-      url: http://192.168.3.188:9206/_bulk
-      body_repeat_times: 10
-      body: "{ \"create\" : { \"_index\" : \"test-$[[suffix]]\",\"_type\":\"doc\", \"_id\" : \"$[[uuid]]\" , \"routing\" : \"$[[routing_no]]\" } }\n{ \"id\" : \"$[[uuid]]\",\"routing_no\" : \"$[[routing_no]]\",\"batch_number\" : \"$[[batch_no]]\", \"random_no\" : \"$[[suffix]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
+        password: managemDFSDFSDFent
+      url: http://192.168.3.200:8000/_bulk
+#      url: http://localhost:8000/_bulk
+      body_repeat_times: 100
+      body: "{ \"create\" : { \"_index\" : \"test-$[[suffix]]\",\"_type\":\"_doc\", \"_id\" : \"$[[uuid]]-$[[id]]\" , \"routing\" : \"$[[routing_no]]\" } }\n{ \"id\" : \"$[[uuid]]\",\"routing_no\" : \"$[[routing_no]]\",\"batch_number\" : \"$[[batch_no]]\", \"random_no\" : \"$[[suffix]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_with_format\" : \"$[[now_with_format]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
 

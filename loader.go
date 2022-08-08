@@ -97,14 +97,12 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 	if resp.StatusCode() == 0 {
 		if err != nil {
 			if global.Env().IsDebug {
-				log.Error(err)
-				log.Error(string(respBody))
+				log.Error(err,string(respBody))
 			}
 		}
 	} else if resp.StatusCode() != 200 {
 		if global.Env().IsDebug {
-			log.Error(err)
-			log.Error(string(respBody))
+			log.Error(err,string(respBody))
 		}
 	}
 
@@ -112,8 +110,7 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 	if err != nil {
 		result.Error = true
 		if global.Env().IsDebug {
-			log.Error(err)
-			log.Error(string(respBody))
+			log.Error(err,string(respBody))
 		}
 		return
 	}
@@ -123,8 +120,10 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 		result.Valid = false
 		return
 	}
+
 	if global.Env().IsDebug {
 		if global.Env().IsDebug {
+			log.Debug(string(req.GetRawBody()))
 			log.Debug(string(respBody))
 		}
 	}
@@ -326,7 +325,7 @@ func (cfg *LoadGenerator) Warmup(config AppConfig) {
 
 		respBody, err := doRequest(&v, buffer, result)
 
-		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url,util.SubString(string(respBody), 0, 256))
+		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url,util.SubString(string(v.Request.Body), 0, 256))
 		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 256))
 		if result.Status >= 400 || result.Status == 0 {
 			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")
