@@ -47,7 +47,7 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 
 	httpClient = fasthttp.Client{
 		ReadTimeout:     time.Second * 60,
-	    WriteTimeout:    time.Second * 60,
+		WriteTimeout:    time.Second * 60,
 		MaxConnsPerHost: goroutines,
 		TLSConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
@@ -58,13 +58,13 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 
 var httpClient fasthttp.Client
 
-var resultPool = &sync.Pool {
-	New: func()interface{} {
-	return &RequestResult{}
+var resultPool = &sync.Pool{
+	New: func() interface{} {
+		return &RequestResult{}
 	},
 }
 
-func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *RequestResult) (respBody []byte, err error) {
+func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *RequestResult) (reqBody,respBody []byte, err error) {
 
 	result.Reset()
 	result.Valid = true
@@ -92,6 +92,7 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 	result.RequestSize = req.GetRequestLength()
 	result.ResponseSize = resp.GetResponseLength()
 
+	reqBody = req.GetRawBody()
 	respBody = resp.GetRawBody()
 
 	if resp.StatusCode() == 0 {
@@ -167,19 +168,18 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 }
 
 var regex = regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
-var bufferPool =bytebufferpool.NewPool(65536,655360)
 
 func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 	start := time.Now()
 
-	limiter:=rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Second*1)
-	buffer:=bufferPool.Get()
-	defer bufferPool.Put(buffer)
+	limiter := rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Second*1)
+	buffer := bytebufferpool.Get("loadgen")
+	defer bytebufferpool.Put("loadgen", buffer)
 	current := 0
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
 
-		result:=resultPool.Get().(*RequestResult)
+		result := resultPool.Get().(*RequestResult)
 		defer resultPool.Put(result)
 
 		for _, v := range config.Requests {
@@ -317,16 +317,16 @@ func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebuff
 
 func (cfg *LoadGenerator) Warmup(config AppConfig) {
 	log.Info("warmup started")
-	buffer:=bufferPool.Get()
-	defer bufferPool.Put(buffer)
-	result:=resultPool.Get().(*RequestResult)
+	buffer := bytebufferpool.Get("loadgen")
+	defer bytebufferpool.Put("loadgen", buffer)
+	result := resultPool.Get().(*RequestResult)
 	defer resultPool.Put(result)
 	for _, v := range config.Requests {
 
-		respBody, err := doRequest(&v, buffer, result)
+		reqBody,respBody, err := doRequest(&v, buffer, result)
 
-		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url,util.SubString(string(v.Request.Body), 0, 256))
-		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 256))
+		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url,util.SubString(string(reqBody), 0, 512))
+		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 512))
 		if result.Status >= 400 || result.Status == 0 {
 			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")
 			reader := bufio.NewReader(os.Stdin)
