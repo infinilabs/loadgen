@@ -185,7 +185,7 @@ func main() {
 
 	terminalFooter := ("")
 
-	app := framework.NewApp("loadgen", "A http load generator and testing suit.",
+	app := framework.NewApp("loadgen", "A http load generator and testing suite.",
 		util.TrimSpaces(config.Version),util.TrimSpaces(config.BuildNumber), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
 
 	app.Init(nil)
