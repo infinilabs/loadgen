@@ -310,7 +310,7 @@ func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebuff
 			req.Header.Set("X-PayLoad-Compressed", util.ToString(true))
 
 		} else {
-			req.SetBody(bodyBuffer.B)
+			req.SetRawBody(bodyBuffer.B)
 		}
 	}
 }
