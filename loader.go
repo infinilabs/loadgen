@@ -124,7 +124,7 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 
 	if global.Env().IsDebug {
 		if global.Env().IsDebug {
-			log.Debug(string(req.GetRawBody()))
+			log.Debug(string(reqBody))
 			log.Debug(string(respBody))
 		}
 	}
