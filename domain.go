@@ -17,16 +17,18 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
+	"github.com/RoaringBitmap/roaring"
+	log "github.com/cihub/seelog"
 	"github.com/valyala/fasttemplate"
 	"infini.sh/framework/core/errors"
+	"infini.sh/framework/core/global"
+	"infini.sh/framework/core/util"
 	"math/rand"
 	"strings"
 	"time"
-
-	log "github.com/cihub/seelog"
-	"infini.sh/framework/core/global"
-	"infini.sh/framework/core/util"
 )
 
 type Request struct {
@@ -64,11 +66,20 @@ type Variable struct {
 	Type string `config:"type"`
 	Name string `config:"name"`
 	Path string `config:"path"`
+	Data []string `config:"data"`
 	Format string `config:"format"`
 
 	//type: range
 	From int `config:"from"`
 	To   int `config:"to"`
+
+	Size int `config:"size"`
+
+	//type: random_int_array
+	RandomArrayKey string `config:"variable_key"`
+	RandomArrayType string `config:"variable_type"`
+	RandomSquareBracketChar bool `config:"square_bracket"`
+	RandomStringBracketChar string `config:"string_bracket"`
 }
 
 type AppConfig struct {
@@ -82,16 +93,30 @@ var variables= map[string]Variable{}
 func (config *AppConfig) Init() {
 	for _, i := range config.Variable {
 		name := util.TrimSpaces(i.Name)
+		var lines []string
 		if len(i.Path) > 0 {
-			lines := util.FileGetLines(i.Path)
+			lines = util.FileGetLines(i.Path)
 			log.Debugf("path:%v, num of lines:%v", i.Path, len(lines))
 			for i, v := range lines {
 				v = strings.ReplaceAll(v, "\\", "\\\\")
 				v = strings.ReplaceAll(v, "\"", "\\\"")
 				lines[i] = v
 			}
-			dict[name] = lines
 		}
+
+		if len(i.Data)>0{
+			for _,v:=range i.Data{
+				v=util.TrimSpaces(v)
+				if len(v)>0{
+					v = strings.ReplaceAll(v, "\\", "\\\\")
+					v = strings.ReplaceAll(v, "\"", "\\\"")
+					lines=append(lines,v)
+				}
+			}
+		}
+
+		dict[name] = lines
+
 		variables[name] = i
 	}
 
@@ -153,8 +178,62 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 			return time.Now().UTC().Format(TsLayout)
 		case "now_unix":
 			return util.IntToString(int(time.Now().Local().Unix()))
+		case "int_array_bitmap":
+			rb3 := roaring.New()
+			if x.Size>0{
+				for y:=0;y<x.Size;y++{
+					v:=rand.Intn(x.To-x.From+1) + x.From
+					rb3.Add(uint32(v))
+				}
+			}
+			buf := new(bytes.Buffer)
+			rb3.WriteTo(buf)
+			return base64.StdEncoding.EncodeToString(buf.Bytes())
 		case "range":
 			return util.IntToString(rand.Intn(x.To-x.From+1) + x.From)
+		case "random_array":
+			str:=bytes.Buffer{}
+
+			if x.RandomSquareBracketChar{
+				str.WriteString("[")
+			}
+
+			if x.RandomArrayKey!=""{
+				if x.Size>0{
+					for y:=0;y<x.Size;y++{
+						if x.RandomSquareBracketChar&&str.Len()>1 ||(!x.RandomSquareBracketChar&&str.Len()>0) {
+							str.WriteString(",")
+						}
+
+						v:=GetVariable(runtimeKV,x.RandomArrayKey)
+
+						//left "
+						if x.RandomArrayType=="string"{
+							if x.RandomStringBracketChar!=""{
+								str.WriteString(x.RandomStringBracketChar)
+							}else{
+								str.WriteString("\"")
+							}
+						}
+
+						str.WriteString(v)
+
+						// right "
+						if x.RandomArrayType=="string"{
+							if x.RandomStringBracketChar!=""{
+								str.WriteString(x.RandomStringBracketChar)
+							}else{
+								str.WriteString("\"")
+							}
+						}
+					}
+				}
+			}
+
+			if x.RandomSquareBracketChar{
+				str.WriteString("]")
+			}
+			return str.String()
 		}
 	}
 

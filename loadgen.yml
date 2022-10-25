@@ -23,19 +23,50 @@ variables:
   - name: suffix
     type: range
     from: 10
-    to: 10
+    to: 1000
+  - name: bool
+    type: range
+    from: 0
+    to: 1
+  - name: list
+    type: list
+    data: 
+    - "medcl"
+    - "abc"
+    - "efg"
+    - "xyz"
+  - name: id_list
+    type: random_array
+    variable_type: number #number/string
+    variable_key: suffix #variable key to get array items
+    square_bracket: false
+    size: 10 #how many items for array
+  - name: id_bitmap
+    type: int_array_bitmap
+    from: 1
+    to: 100000
+    size: 100
 requests:
   - request:
       method: POST
       runtime_variables:
-        batch_no: id
+        batch_no: uuid
       runtime_body_line_variables:
         routing_no: uuid
       basic_auth:
         username: ingest
         password: managemDFSDFSDFent
-      url: http://192.168.3.200:8000/_bulk
-#      url: http://localhost:8000/_bulk
-      body_repeat_times: 100
-      body: "{ \"create\" : { \"_index\" : \"test-$[[suffix]]\",\"_type\":\"_doc\", \"_id\" : \"$[[uuid]]-$[[id]]\" , \"routing\" : \"$[[routing_no]]\" } }\n{ \"id\" : \"$[[uuid]]\",\"routing_no\" : \"$[[routing_no]]\",\"batch_number\" : \"$[[batch_no]]\", \"random_no\" : \"$[[suffix]]\",\"ip\" : \"$[[ip]]\",\"now_local\" : \"$[[now_local]]\",\"now_with_format\" : \"$[[now_with_format]]\",\"now_unix\" : \"$[[now_unix]]\" }\n"
+      url: http://192.168.3.188:9236/patent_basic_long_250/_search
+      body: '{
+  "track_total_hits": true,
+  "size": 0,
+  "query": {
+   "terms": {
+     "patent_id": [
+        $[[id_list]]
+     ]
+   }
 
+  }
+}
+'
