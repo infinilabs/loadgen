@@ -168,19 +168,22 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 }
 
 var regex = regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
-
+var loadgenPool=bytebufferpool.NewTaggedPool("loadgen",0,100*1024*1024,10000)
 func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 	start := time.Now()
 
 	limiter := rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Second*1)
-	buffer := bytebufferpool.Get("loadgen")
-	defer bytebufferpool.Put("loadgen", buffer)
+	buffer := loadgenPool.Get()
+	defer loadgenPool.Put(buffer)
 	current := 0
+	result := resultPool.Get().(*RequestResult)
+	defer resultPool.Put(result)
+
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
 
-		result := resultPool.Get().(*RequestResult)
-		defer resultPool.Put(result)
+		buffer.Reset()
+		result.Reset()
 
 		for _, v := range config.Requests {
 
@@ -249,7 +252,7 @@ func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebuff
 	if v.Request.urlHasTemplate {
 		url = v.Request.urlTemplate.ExecuteFuncString(func(w io.Writer, tag string) (int, error) {
 			variable := GetVariable(runtimeVariables, tag)
-			return w.Write([]byte(variable))
+			return w.Write(util.UnsafeStringToBytes(variable))
 		})
 	}
 
@@ -283,16 +286,10 @@ func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebuff
 					}
 				}
 
-				body = v.Request.bodyTemplate.ExecuteFuncString(func(w io.Writer, tag string) (int, error) {
+				v.Request.bodyTemplate.ExecuteFuncStringExtend(bodyBuffer,func(w io.Writer, tag string) (int, error) {
 					variable := GetVariable(runtimeVariables, tag)
-					return w.Write([]byte(variable))
+					return w.Write(util.UnsafeStringToBytes(variable))
 				})
-			}
-			if len(body) > 0 {
-				if global.Env().IsDebug {
-					log.Trace(util.SubString(body, 0, 1024))
-				}
-				bodyBuffer.WriteString(body)
 			}
 		}
 	}
@@ -317,8 +314,8 @@ func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebuff
 
 func (cfg *LoadGenerator) Warmup(config AppConfig) {
 	log.Info("warmup started")
-	buffer := bytebufferpool.Get("loadgen")
-	defer bytebufferpool.Put("loadgen", buffer)
+	buffer := loadgenPool.Get()
+	defer loadgenPool.Put(buffer)
 	result := resultPool.Get().(*RequestResult)
 	defer resultPool.Put(result)
 	for _, v := range config.Requests {
