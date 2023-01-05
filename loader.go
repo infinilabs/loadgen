@@ -19,10 +19,6 @@ import (
 	"time"
 )
 
-const (
-	UserAgent = "loadgen"
-)
-
 type LoadGenerator struct {
 	duration        int //seconds
 	goroutines      int
@@ -49,6 +45,8 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 		ReadTimeout:     time.Second * 60,
 		WriteTimeout:    time.Second * 60,
 		MaxConnsPerHost: goroutines,
+		NoDefaultUserAgentHeader: false,
+		Name: global.Env().GetAppLowercaseName()+"/"+global.Env().GetVersion()+"/"+global.Env().GetBuildNumber(),
 		TLSConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
 
@@ -273,7 +271,7 @@ func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebuff
 		}
 	}
 
-	req.Header.Add("User-Agent", UserAgent)
+	//req.Header.Set("User-Agent", UserAgent)
 
 	//prepare request body
 	for i := 0; i < v.Request.RepeatBodyNTimes; i++ {
@@ -294,8 +292,9 @@ func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebuff
 		}
 	}
 
+	req.Header.Set("X-PayLoad-Size", util.ToString(bodyBuffer.Len()))
+
 	if bodyBuffer.Len() > 0 {
-		req.Header.Set("X-PayLoad-Size", util.ToString(bodyBuffer.Len()))
 		if compress {
 			_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), bodyBuffer.B, fasthttp.CompressBestCompression)
 			if err != nil {
