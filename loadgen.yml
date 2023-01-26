@@ -56,7 +56,7 @@ requests:
       basic_auth:
         username: ingest
         password: managemDFSDFSDFent
-      url: http://192.168.3.188:9236/patent_basic_long_250/_search
+      url: http://localhost:8000/_search
       body: '{
   "track_total_hits": true,
   "size": 0,

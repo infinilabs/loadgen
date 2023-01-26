@@ -70,8 +70,8 @@ type Variable struct {
 	Format string `config:"format"`
 
 	//type: range
-	From int `config:"from"`
-	To   int `config:"to"`
+	From uint64 `config:"from"`
+	To   uint64 `config:"to"`
 
 	Size int `config:"size"`
 
@@ -162,7 +162,9 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 	if ok {
 		switch x.Type {
 		case "sequence":
-			return util.IntToString(int(util.GetIncrementID(x.Name)))
+			return util.ToString(util.GetAutoIncrement32ID(x.Name,uint32(x.From),uint32(x.To)).Increment())
+		case "sequence64":
+			return util.ToString(util.GetAutoIncrement64ID(x.Name, x.From, x.To).Increment64())
 		case "uuid":
 			return util.GetUUID()
 		case "now_local":
@@ -182,7 +184,7 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 			rb3 := roaring.New()
 			if x.Size>0{
 				for y:=0;y<x.Size;y++{
-					v:=rand.Intn(x.To-x.From+1) + x.From
+					v:=rand.Intn(int(x.To-x.From+1)) + int(x.From)
 					rb3.Add(uint32(v))
 				}
 			}
@@ -190,7 +192,7 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 			rb3.WriteTo(buf)
 			return base64.StdEncoding.EncodeToString(buf.Bytes())
 		case "range":
-			return util.IntToString(rand.Intn(x.To-x.From+1) + x.From)
+			return util.IntToString(rand.Intn(int(x.To-x.From+1)) + int(x.From))
 		case "random_array":
 			str:=bytes.Buffer{}
 
