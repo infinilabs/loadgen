@@ -3,13 +3,6 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
-	log "github.com/cihub/seelog"
-	"infini.sh/framework/core/global"
-	"infini.sh/framework/core/rate"
-	"infini.sh/framework/core/stats"
-	"infini.sh/framework/core/util"
-	"infini.sh/framework/lib/bytebufferpool"
-	"infini.sh/framework/lib/fasthttp"
 	"io"
 	"os"
 	"regexp"
@@ -17,6 +10,15 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	log "github.com/cihub/seelog"
+	"infini.sh/framework/core/conditions"
+	"infini.sh/framework/core/global"
+	"infini.sh/framework/core/rate"
+	"infini.sh/framework/core/stats"
+	"infini.sh/framework/core/util"
+	"infini.sh/framework/lib/bytebufferpool"
+	"infini.sh/framework/lib/fasthttp"
 )
 
 type LoadGenerator struct {
@@ -42,12 +44,12 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 ) (rt *LoadGenerator) {
 
 	httpClient = fasthttp.Client{
-		ReadTimeout:     time.Second * 60,
-		WriteTimeout:    time.Second * 60,
-		MaxConnsPerHost: goroutines,
+		ReadTimeout:              time.Second * 60,
+		WriteTimeout:             time.Second * 60,
+		MaxConnsPerHost:          goroutines,
 		NoDefaultUserAgentHeader: false,
-		Name: global.Env().GetAppLowercaseName()+"/"+global.Env().GetVersion()+"/"+global.Env().GetBuildNumber(),
-		TLSConfig:       &tls.Config{InsecureSkipVerify: true},
+		Name:                     global.Env().GetAppLowercaseName() + "/" + global.Env().GetVersion() + "/" + global.Env().GetBuildNumber(),
+		TLSConfig:                &tls.Config{InsecureSkipVerify: true},
 	}
 
 	rt = &LoadGenerator{duration, goroutines, statsAggregator, 0}
@@ -62,7 +64,7 @@ var resultPool = &sync.Pool{
 	},
 }
 
-func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *RequestResult) (reqBody,respBody []byte, err error) {
+func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *RequestResult) (reqBody, respBody []byte, err error) {
 
 	result.Reset()
 	result.Valid = true
@@ -96,12 +98,12 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 	if resp.StatusCode() == 0 {
 		if err != nil {
 			if global.Env().IsDebug {
-				log.Error(err,string(respBody))
+				log.Error(err, string(respBody))
 			}
 		}
 	} else if resp.StatusCode() != 200 {
 		if global.Env().IsDebug {
-			log.Error(err,string(respBody))
+			log.Error(err, string(respBody))
 		}
 	}
 
@@ -109,7 +111,7 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 	if err != nil {
 		result.Error = true
 		if global.Env().IsDebug {
-			log.Error(err,string(respBody))
+			log.Error(err, string(respBody))
 		}
 		return
 	}
@@ -127,7 +129,26 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 		}
 	}
 
-	if item.ResponseAssert != nil {
+	if item.Assert != nil {
+		event := valuesMap{
+			"_res.response.status":    resp.StatusCode(),
+			"_res.response.body_text": string(respBody),
+			"_res.response.body_size": len(respBody),
+		}
+		condition, buildErr := conditions.NewCondition(item.Assert)
+		if buildErr != nil {
+			log.Error("failed to build conditions whilte assert existed, error: %+v", err)
+			return
+		}
+		if !condition.Check(event) {
+			if global.Env().IsDebug {
+				log.Error("assert failed")
+			}
+			result.Valid = false
+			return
+		}
+		return
+	} else if item.ResponseAssert != nil {
 		if global.Env().IsDebug {
 			log.Trace(string(respBody))
 		}
@@ -166,7 +187,8 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 }
 
 var regex = regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
-var loadgenPool=bytebufferpool.NewTaggedPool("loadgen",0,100*1024*1024,10000)
+var loadgenPool = bytebufferpool.NewTaggedPool("loadgen", 0, 100*1024*1024, 10000)
+
 func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 	start := time.Now()
@@ -178,7 +200,13 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	result := resultPool.Get().(*RequestResult)
 	defer resultPool.Put(result)
 
+	totalRounds := 0
+
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
+		if config.RunnerConfig.TotalRounds > 0 && totalRounds >= config.RunnerConfig.TotalRounds {
+			goto END
+		}
+		totalRounds += 1
 
 		buffer.Reset()
 		result.Reset()
@@ -193,7 +221,11 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 				}
 			}
 
-			doRequest(&v, buffer, result)
+			reqBody, respBody, err := doRequest(&v, buffer, result)
+			if config.RunnerConfig.LogRequests {
+				log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url, util.SubString(string(reqBody), 0, 512))
+				log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 512))
+			}
 
 			if !result.Valid {
 				stats.NumInvalid++
@@ -284,10 +316,12 @@ func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebuff
 					}
 				}
 
-				v.Request.bodyTemplate.ExecuteFuncStringExtend(bodyBuffer,func(w io.Writer, tag string) (int, error) {
+				v.Request.bodyTemplate.ExecuteFuncStringExtend(bodyBuffer, func(w io.Writer, tag string) (int, error) {
 					variable := GetVariable(runtimeVariables, tag)
 					return w.Write(util.UnsafeStringToBytes(variable))
 				})
+			} else {
+				bodyBuffer.WriteString(body)
 			}
 		}
 	}
@@ -319,9 +353,9 @@ func (cfg *LoadGenerator) Warmup(config AppConfig) {
 	defer resultPool.Put(result)
 	for _, v := range config.Requests {
 
-		reqBody,respBody, err := doRequest(&v, buffer, result)
+		reqBody, respBody, err := doRequest(&v, buffer, result)
 
-		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url,util.SubString(string(reqBody), 0, 512))
+		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url, util.SubString(string(reqBody), 0, 512))
 		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 512))
 		if result.Status >= 400 || result.Status == 0 {
 			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")

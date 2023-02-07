@@ -20,16 +20,29 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"github.com/RoaringBitmap/roaring"
-	log "github.com/cihub/seelog"
-	"github.com/valyala/fasttemplate"
-	"infini.sh/framework/core/errors"
-	"infini.sh/framework/core/global"
-	"infini.sh/framework/core/util"
 	"math/rand"
 	"strings"
 	"time"
+
+	"github.com/RoaringBitmap/roaring"
+	log "github.com/cihub/seelog"
+	"github.com/valyala/fasttemplate"
+
+	"infini.sh/framework/core/conditions"
+	"infini.sh/framework/core/errors"
+	"infini.sh/framework/core/global"
+	"infini.sh/framework/core/util"
 )
+
+type valuesMap map[string]interface{}
+
+func (m valuesMap) GetValue(key string) (interface{}, error) {
+	v, ok := m[key]
+	if !ok {
+		return nil, errors.New("key not found")
+	}
+	return v, nil
+}
 
 type Request struct {
 	Method           string              `config:"method"`
@@ -63,11 +76,11 @@ type ResponseAssert struct {
 }
 
 type Variable struct {
-	Type string `config:"type"`
-	Name string `config:"name"`
-	Path string `config:"path"`
-	Data []string `config:"data"`
-	Format string `config:"format"`
+	Type   string   `config:"type"`
+	Name   string   `config:"name"`
+	Path   string   `config:"path"`
+	Data   []string `config:"data"`
+	Format string   `config:"format"`
 
 	//type: range
 	From uint64 `config:"from"`
@@ -76,19 +89,31 @@ type Variable struct {
 	Size int `config:"size"`
 
 	//type: random_int_array
-	RandomArrayKey string `config:"variable_key"`
-	RandomArrayType string `config:"variable_type"`
-	RandomSquareBracketChar bool `config:"square_bracket"`
+	RandomArrayKey          string `config:"variable_key"`
+	RandomArrayType         string `config:"variable_type"`
+	RandomSquareBracketChar bool   `config:"square_bracket"`
 	RandomStringBracketChar string `config:"string_bracket"`
 }
 
 type AppConfig struct {
-	Variable []Variable    `config:"variables"`
-	Requests []RequestItem `config:"requests"`
+	Variable     []Variable    `config:"variables"`
+	Requests     []RequestItem `config:"requests"`
+	RunnerConfig RunnerConfig  `config:"runner_config"`
 }
 
-var dict= map[string][]string{}
-var variables= map[string]Variable{}
+type RunnerConfig struct {
+	// How many rounds of `requests` to run
+	TotalRounds int `config:"total_rounds"`
+	// Skip warming up round
+	NoWarm bool `config:"no_warm"`
+	// Exit(1) if any assert failed
+	AssertInvalid bool `config:"assert_invalid"`
+	// Print the request sent to server
+	LogRequests bool `config:"log_requests"`
+}
+
+var dict = map[string][]string{}
+var variables = map[string]Variable{}
 
 func (config *AppConfig) Init() {
 	for _, i := range config.Variable {
@@ -104,13 +129,13 @@ func (config *AppConfig) Init() {
 			}
 		}
 
-		if len(i.Data)>0{
-			for _,v:=range i.Data{
-				v=util.TrimSpaces(v)
-				if len(v)>0{
+		if len(i.Data) > 0 {
+			for _, v := range i.Data {
+				v = util.TrimSpaces(v)
+				if len(v) > 0 {
 					v = strings.ReplaceAll(v, "\\", "\\\\")
 					v = strings.ReplaceAll(v, "\"", "\\\"")
-					lines=append(lines,v)
+					lines = append(lines, v)
 				}
 			}
 		}
@@ -146,7 +171,7 @@ func (config *AppConfig) Init() {
 
 }
 
-//"2021-08-23T11:13:36.274"
+// "2021-08-23T11:13:36.274"
 const TsLayout = "2006-01-02T15:04:05.000"
 
 func GetVariable(runtimeKV map[string]string, key string) string {
@@ -162,7 +187,7 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 	if ok {
 		switch x.Type {
 		case "sequence":
-			return util.ToString(util.GetAutoIncrement32ID(x.Name,uint32(x.From),uint32(x.To)).Increment())
+			return util.ToString(util.GetAutoIncrement32ID(x.Name, uint32(x.From), uint32(x.To)).Increment())
 		case "sequence64":
 			return util.ToString(util.GetAutoIncrement64ID(x.Name, x.From, x.To).Increment64())
 		case "uuid":
@@ -170,8 +195,8 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 		case "now_local":
 			return time.Now().Local().String()
 		case "now_with_format":
-			if x.Format==""{
-				panic(errors.Errorf("date format is not set, [%v]",x))
+			if x.Format == "" {
+				panic(errors.Errorf("date format is not set, [%v]", x))
 			}
 			return time.Now().Format(x.Format)
 		case "now_utc":
@@ -182,9 +207,9 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 			return util.IntToString(int(time.Now().Local().Unix()))
 		case "int_array_bitmap":
 			rb3 := roaring.New()
-			if x.Size>0{
-				for y:=0;y<x.Size;y++{
-					v:=rand.Intn(int(x.To-x.From+1)) + int(x.From)
+			if x.Size > 0 {
+				for y := 0; y < x.Size; y++ {
+					v := rand.Intn(int(x.To-x.From+1)) + int(x.From)
 					rb3.Add(uint32(v))
 				}
 			}
@@ -194,26 +219,26 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 		case "range":
 			return util.IntToString(rand.Intn(int(x.To-x.From+1)) + int(x.From))
 		case "random_array":
-			str:=bytes.Buffer{}
+			str := bytes.Buffer{}
 
-			if x.RandomSquareBracketChar{
+			if x.RandomSquareBracketChar {
 				str.WriteString("[")
 			}
 
-			if x.RandomArrayKey!=""{
-				if x.Size>0{
-					for y:=0;y<x.Size;y++{
-						if x.RandomSquareBracketChar&&str.Len()>1 ||(!x.RandomSquareBracketChar&&str.Len()>0) {
+			if x.RandomArrayKey != "" {
+				if x.Size > 0 {
+					for y := 0; y < x.Size; y++ {
+						if x.RandomSquareBracketChar && str.Len() > 1 || (!x.RandomSquareBracketChar && str.Len() > 0) {
 							str.WriteString(",")
 						}
 
-						v:=GetVariable(runtimeKV,x.RandomArrayKey)
+						v := GetVariable(runtimeKV, x.RandomArrayKey)
 
 						//left "
-						if x.RandomArrayType=="string"{
-							if x.RandomStringBracketChar!=""{
+						if x.RandomArrayType == "string" {
+							if x.RandomStringBracketChar != "" {
 								str.WriteString(x.RandomStringBracketChar)
-							}else{
+							} else {
 								str.WriteString("\"")
 							}
 						}
@@ -221,10 +246,10 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 						str.WriteString(v)
 
 						// right "
-						if x.RandomArrayType=="string"{
-							if x.RandomStringBracketChar!=""{
+						if x.RandomArrayType == "string" {
+							if x.RandomStringBracketChar != "" {
 								str.WriteString(x.RandomStringBracketChar)
-							}else{
+							} else {
 								str.WriteString("\"")
 							}
 						}
@@ -232,7 +257,7 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 				}
 			}
 
-			if x.RandomSquareBracketChar{
+			if x.RandomSquareBracketChar {
 				str.WriteString("]")
 			}
 			return str.String()
@@ -251,17 +276,17 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 	return "not_found"
 }
 
-func (config *AppConfig)ReplaceVariable(runtimeKV map[string]string,v string) string {
-	matchs :=regex.FindAllString(v,-1)
-	for _,v1:=range matchs {
-		old :=v1
-		v1=util.TrimLeftStr(v1,"$[[")
-		v1=util.TrimRightStr(v1,"]]")
+func (config *AppConfig) ReplaceVariable(runtimeKV map[string]string, v string) string {
+	matchs := regex.FindAllString(v, -1)
+	for _, v1 := range matchs {
+		old := v1
+		v1 = util.TrimLeftStr(v1, "$[[")
+		v1 = util.TrimRightStr(v1, "]]")
 		variable := GetVariable(runtimeKV, v1)
-		v=strings.ReplaceAll(v, old,fmt.Sprintf("%s",util.TrimSpaces(variable)))
+		v = strings.ReplaceAll(v, old, fmt.Sprintf("%s", util.TrimSpaces(variable)))
 	}
-	if global.Env().IsDebug{
-		log.Trace("replaced:",v)
+	if global.Env().IsDebug {
+		log.Trace("replaced:", v)
 	}
 	return v
 }
@@ -269,22 +294,24 @@ func (config *AppConfig)ReplaceVariable(runtimeKV map[string]string,v string) st
 type RequestItem struct {
 	Request        *Request        `config:"request"`
 	ResponseAssert *ResponseAssert `config:"response"`
+	// TODO: mask invalid gateway fields
+	Assert *conditions.Config `config:"assert"`
 }
 
 type RequestResult struct {
-	RequestSize int
+	RequestSize  int
 	ResponseSize int
-	Status int
-	Error bool
-	Valid bool
-	Duration time.Duration
+	Status       int
+	Error        bool
+	Valid        bool
+	Duration     time.Duration
 }
 
-func (result *RequestResult) Reset()  {
-	result.Error=false
-	result.Status=0
-	result.RequestSize=0
-	result.ResponseSize=0
-	result.Valid=false
-	result.Duration=0
+func (result *RequestResult) Reset() {
+	result.Error = false
+	result.Status = 0
+	result.RequestSize = 0
+	result.ResponseSize = 0
+	result.Valid = false
+	result.Duration = 0
 }

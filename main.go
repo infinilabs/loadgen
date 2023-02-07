@@ -31,7 +31,7 @@ func init() {
 	flag.BoolVar(&compress, "compress", false, "Compress requests with gzip")
 }
 
-func startLoader(cfg AppConfig) {
+func startLoader(cfg AppConfig) *LoadStats {
 
 	statsAggregator = make(chan *LoadStats, goroutines)
 	sigChan := make(chan os.Signal, 1)
@@ -42,7 +42,9 @@ func startLoader(cfg AppConfig) {
 
 	loadGen := NewLoadGenerator(duration, goroutines, statsAggregator)
 
-	loadGen.Warmup(cfg)
+	if !cfg.RunnerConfig.NoWarm {
+		loadGen.Warmup(cfg)
+	}
 
 	var reqPerGoroutines int
 	if reqLimit > 0 {
@@ -56,7 +58,7 @@ func startLoader(cfg AppConfig) {
 
 	if leftDoc == 0 {
 		log.Warn("only one request was executed\n")
-		return
+		return nil
 	}
 
 	for i := 0; i < goroutines; i++ {
@@ -111,7 +113,7 @@ func startLoader(cfg AppConfig) {
 
 	if aggStats.NumRequests == 0 {
 		fmt.Println("Error: No statistics collected / no requests found")
-		return
+		return nil
 	}
 
 	avgThreadDur := aggStats.TotDuration / time.Duration(responders) //need to average the aggregated duration
@@ -148,6 +150,7 @@ func startLoader(cfg AppConfig) {
 
 	fmt.Println("")
 
+	return &aggStats
 }
 
 //func addProcessToCgroup(filepath string, pid int) {
@@ -186,7 +189,7 @@ func main() {
 	terminalFooter := ("")
 
 	app := framework.NewApp("loadgen", "A http load generator and testing suite.",
-		util.TrimSpaces(config.Version),util.TrimSpaces(config.BuildNumber), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
+		util.TrimSpaces(config.Version), util.TrimSpaces(config.BuildNumber), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
 
 	app.Init(nil)
 
@@ -211,20 +214,29 @@ func main() {
 			panic(err)
 		}
 
+		runnerConfig := RunnerConfig{}
+		ok, err = env.ParseConfig("runner", &runnerConfig)
+		if ok && err != nil {
+			panic(err)
+		}
+
 		loaderConfig.Requests = items
 		loaderConfig.Variable = variables
+		loaderConfig.RunnerConfig = runnerConfig
 		loaderConfig.Init()
-
 
 	}, func() {
 
 		go func() {
-			startLoader(loaderConfig)
+			aggStats := startLoader(loaderConfig)
 			time.Sleep(1 * time.Second)
-			os.Exit(1)
+			if loaderConfig.RunnerConfig.AssertInvalid && (aggStats == nil || aggStats.NumInvalid > 0) {
+				os.Exit(1)
+			}
+			os.Exit(0)
 		}()
 
-	},nil){
+	}, nil) {
 		app.Run()
 	}
 
