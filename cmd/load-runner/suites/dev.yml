@@ -1,0 +1,14 @@
+environment:
+  elasticsearch:
+    endpoint: http://127.0.0.1:19201
+  gateway:
+    command: /Users/kassian/Workspace/infini/src/infini.sh/gateway/bin/gateway
+    endpoint: localhost:8000
+  loadgen:
+    command: /Users/kassian/Workspace/infini/src/infini.sh/loadgen/bin/loadgen
+tests:
+  - path: setup/gateway/cases/elasticsearch/elasticsearch-with-cache
+  - path: setup/gateway/cases/elasticsearch/elasticsearch-with-cache-plus
+  - path: setup/gateway/cases/echo/hello_world
+  - path: setup/gateway/cases/echo/echo_with_context
+  - path: setup/gateway/cases/echo/dump_context
