@@ -1,6 +1,6 @@
 env:
   LR_ELASTICSEARCH_ENDPOINT: http://127.0.0.1:19201
-  LR_GATEWAY_ENDPOINT: localhost:8000
+  LR_GATEWAY_HOST: localhost:8000
   LR_GATEWAY_CMD:  /Users/kassian/Workspace/infini/src/infini.sh/gateway/bin/gateway
   LR_LOADGEN_CMD:  /Users/kassian/Workspace/infini/src/infini.sh/loadgen/bin/loadgen
 tests:

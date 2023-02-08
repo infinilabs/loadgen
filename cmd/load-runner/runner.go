@@ -26,7 +26,7 @@ type TestMsg struct {
 }
 
 var (
-	runnerEnvs = []string{env_LR_GATEWAY_ENDPOINT, env_LR_ELASTICSEARCH_ENDPOINT}
+	runnerEnvs = []string{env_LR_GATEWAY_HOST, env_LR_ELASTICSEARCH_ENDPOINT}
 )
 
 func startRunner(appConfig *AppConfig) {

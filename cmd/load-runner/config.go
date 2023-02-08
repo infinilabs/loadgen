@@ -10,7 +10,7 @@ type AppConfig struct {
 	/*
 		Required environments:
 		- LR_ELASTICSEARCH_ENDPOINT // ES server endpoint
-		- LR_GATEWAY_ENDPOINT // Gateway server endpoint
+		- LR_GATEWAY_HOST // Gateway server host
 		- LR_GATEWAY_CMD // The command to start gateway server
 		- LR_LOADGEN_CMD // The command to start loadgen
 		Optional environments:
@@ -22,14 +22,14 @@ type AppConfig struct {
 
 const (
 	env_LR_ELASTICSEARCH_ENDPOINT = "LR_ELASTICSEARCH_ENDPOINT"
-	env_LR_GATEWAY_ENDPOINT       = "LR_GATEWAY_ENDPOINT"
+	env_LR_GATEWAY_HOST           = "LR_GATEWAY_HOST"
 	env_LR_GATEWAY_CMD            = "LR_GATEWAY_CMD"
 	env_LR_LOADGEN_CMD            = "LR_LOADGEN_CMD"
 	env_LR_TEST_DIR               = "LR_TEST_DIR"
 )
 
 func (cfg *AppConfig) Init() {
-	if !cfg.testEnv(env_LR_ELASTICSEARCH_ENDPOINT, env_LR_GATEWAY_ENDPOINT, env_LR_GATEWAY_CMD, env_LR_LOADGEN_CMD) {
+	if !cfg.testEnv(env_LR_ELASTICSEARCH_ENDPOINT, env_LR_GATEWAY_HOST, env_LR_GATEWAY_CMD, env_LR_LOADGEN_CMD) {
 		panic("invalid environment configurations")
 	}
 	if cfg.Environments[env_LR_TEST_DIR] == "" {
