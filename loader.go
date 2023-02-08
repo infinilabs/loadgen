@@ -131,9 +131,9 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 
 	if item.Assert != nil {
 		event := valuesMap{
-			"_res.response.status":    resp.StatusCode(),
-			"_res.response.body_text": string(respBody),
-			"_res.response.body_size": len(respBody),
+			"_res.response.status":      resp.StatusCode(),
+			"_res.response.body":        string(respBody),
+			"_res.response.body_length": len(respBody),
 		}
 		condition, buildErr := conditions.NewCondition(item.Assert)
 		if buildErr != nil {
