@@ -6,12 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"sync/atomic"
 	"time"
 
 	log "github.com/cihub/seelog"
-	"github.com/valyala/fasttemplate"
 )
 
 type TestResult struct {
@@ -27,11 +25,14 @@ type TestMsg struct {
 	DurationInMs int64  `json:"duration_in_ms"`
 }
 
+var (
+	runnerEnvs = []string{env_LR_GATEWAY_ENDPOINT, env_LR_ELASTICSEARCH_ENDPOINT}
+)
+
 func startRunner(appConfig *AppConfig) {
-	envMap := generateEnvironmentMap(appConfig)
 	msgs := make([]*TestMsg, len(appConfig.Tests))
 	for i, test := range appConfig.Tests {
-		result, err := runTest(appConfig, envMap, test)
+		result, err := runTest(appConfig, test)
 		msg := &TestMsg{
 			Path: test.Path,
 		}
@@ -52,39 +53,32 @@ func startRunner(appConfig *AppConfig) {
 	}
 }
 
-func runTest(appConfig *AppConfig, environmentMap map[string]interface{}, test Test) (*TestResult, error) {
+func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	// To kill loadgen/gateway/other command automatically
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	testPath := path.Join(appConfig.Environment.TestDir, test.Path)
+	testPath := path.Join(appConfig.Environments[env_LR_TEST_DIR], test.Path)
 
-	loadgenConfigPath, gatewayConfigPath, err := generateConfig(testPath, environmentMap)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := os.Remove(loadgenConfigPath); err != nil {
-			log.Warn("failed to clean loadgen tempfile: %+v", err)
-		}
-		if err := os.Remove(gatewayConfigPath); err != nil {
-			log.Warn("failed to clean gateway tempfile: %+v", err)
-		}
-	}()
+	loadgenConfigPath, gatewayConfigPath := path.Join(testPath, "loadgen.yml"), path.Join(testPath, "gateway.yml")
 
 	log.Debugf("Executing gateway & loadgen within %s", testPath)
 	if err := os.Chdir(testPath); err != nil {
 		return nil, err
 	}
 
-	loadgenPath := appConfig.Environment.Loadgen.Command
-	gatewayPath := appConfig.Environment.Gateway.Command
+	loadgenPath := appConfig.Environments[env_LR_LOADGEN_CMD]
+	gatewayPath := appConfig.Environments[env_LR_GATEWAY_CMD]
 	loadgenCmdArgs := []string{"-config", loadgenConfigPath}
 	gatewayCmdArgs := []string{"-config", gatewayConfigPath}
 	log.Debugf("Executing loadgen with args [%+v]", loadgenCmdArgs)
 	log.Debugf("Executing gateway with args [%+v]", gatewayCmdArgs)
+	env := generateEnv(appConfig)
+	log.Debugf("Executing gateway/loadgen with environment [%+v]", env)
 	loadgenCmd := exec.CommandContext(ctx, loadgenPath, loadgenCmdArgs...)
+	loadgenCmd.Env = env
 	gatewayCmd := exec.CommandContext(ctx, gatewayPath, gatewayCmdArgs...)
+	gatewayCmd.Env = env
 
 	gatewayFailed := atomic.Bool{}
 
@@ -135,64 +129,13 @@ func runTest(appConfig *AppConfig, environmentMap map[string]interface{}, test T
 	return testResult, nil
 }
 
-func generateEnvironmentMap(appConfig *AppConfig) map[string]interface{} {
-	envMap := map[string]interface{}{}
-	env := appConfig.Environment
-	envMap["elasticsearch.endpoint"] = env.Elasticsearch.Endpoint
-	envMap["gateway.endpoint"] = env.Gateway.Endpoint
-	return envMap
-}
-
-func generateConfig(testPath string, environmentMap map[string]interface{}) (loadgenConfigPath string, gatewayConfigPath string, err error) {
-	loadgenConfigTmplPath := path.Join(testPath, "loadgen.yml")
-	gatewayConfigTmplPath := path.Join(testPath, "gateway.yml")
-
-	if _, err := os.Stat(loadgenConfigTmplPath); errors.Is(err, os.ErrNotExist) {
-		return "", "", errors.New("missing loadgen.yml")
+func generateEnv(appConfig *AppConfig) (env []string) {
+	envMap := appConfig.Environments
+	for _, k := range runnerEnvs {
+		v, ok := envMap[k]
+		if ok {
+			env = append(env, k+"="+v)
+		}
 	}
-	if _, err := os.Stat(gatewayConfigTmplPath); errors.Is(err, os.ErrNotExist) {
-		return "", "", errors.New("missing gateway.yml")
-	}
-
-	loadgenConfigTmplStr, err := os.ReadFile(loadgenConfigTmplPath)
-	if err != nil {
-		return "", "", err
-	}
-	gatewayConfigTmplStr, err := os.ReadFile(gatewayConfigTmplPath)
-	if err != nil {
-		return "", "", err
-	}
-	loadgenConfigTmpl, err := fasttemplate.NewTemplate(string(loadgenConfigTmplStr), "${{", "}}")
-	if err != nil {
-		return "", "", err
-	}
-	gatewayConfigTmpl, err := fasttemplate.NewTemplate(string(gatewayConfigTmplStr), "${{", "}}")
-	if err != nil {
-		return "", "", err
-	}
-	prefix := filepath.Base(testPath)
-	loadgenConfigFile, err := os.CreateTemp("", prefix+"-loadgen-*.yaml")
-	if err != nil {
-		return "", "", err
-	}
-	defer loadgenConfigFile.Close()
-	log.Warn(loadgenConfigFile.Name())
-	gatewayConfigFile, err := os.CreateTemp("", prefix+"-gateway-*.yaml")
-	if err != nil {
-		return "", "", err
-	}
-	defer gatewayConfigFile.Close()
-
-	_, err = loadgenConfigTmpl.Execute(loadgenConfigFile, environmentMap)
-	if err != nil {
-		return "", "", err
-	}
-	_, err = gatewayConfigTmpl.Execute(gatewayConfigFile, environmentMap)
-	if err != nil {
-		return "", "", err
-	}
-
-	loadgenConfigPath = loadgenConfigFile.Name()
-	gatewayConfigPath = gatewayConfigFile.Name()
 	return
 }

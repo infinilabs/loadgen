@@ -7,58 +7,49 @@ import (
 )
 
 type AppConfig struct {
-	Environment *Environment `config:"environment"`
-	Tests       []Test       `config:"tests"`
+	/*
+		Required environments:
+		- LR_ELASTICSEARCH_ENDPOINT // ES server endpoint
+		- LR_GATEWAY_ENDPOINT // Gateway server endpoint
+		- LR_GATEWAY_CMD // The command to start gateway server
+		- LR_LOADGEN_CMD // The command to start loadgen
+		Optional environments:
+		- LR_TEST_DIR    // The root directory of all test cases, will automatically convert to absolute path. Default: ./testing
+	*/
+	Environments map[string]string `config:"env"`
+	Tests        []Test            `config:"tests"`
 }
 
+const (
+	env_LR_ELASTICSEARCH_ENDPOINT = "LR_ELASTICSEARCH_ENDPOINT"
+	env_LR_GATEWAY_ENDPOINT       = "LR_GATEWAY_ENDPOINT"
+	env_LR_GATEWAY_CMD            = "LR_GATEWAY_CMD"
+	env_LR_LOADGEN_CMD            = "LR_LOADGEN_CMD"
+	env_LR_TEST_DIR               = "LR_TEST_DIR"
+)
+
 func (cfg *AppConfig) Init() {
-	if cfg.Environment == nil || cfg.Environment.Elasticsearch == nil || cfg.Environment.Gateway == nil || cfg.Environment.Loadgen == nil {
-		panic("invalid environment config")
+	if !cfg.testEnv(env_LR_ELASTICSEARCH_ENDPOINT, env_LR_GATEWAY_ENDPOINT, env_LR_GATEWAY_CMD, env_LR_LOADGEN_CMD) {
+		panic("invalid environment configurations")
 	}
-	if cfg.Environment.Elasticsearch.Endpoint == "" {
-		panic("invalid es config")
+	if cfg.Environments[env_LR_TEST_DIR] == "" {
+		cfg.Environments[env_LR_TEST_DIR] = "./testing"
 	}
-	if cfg.Environment.Gateway.Command == "" || cfg.Environment.Gateway.Endpoint == "" {
-		panic("invalid gateway config")
-	}
-	if cfg.Environment.Loadgen.Command == "" {
-		panic("invalid loadgen config")
-	}
-	if cfg.Environment.TestDir == "" {
-		cfg.Environment.TestDir = "./testing"
-	}
-	fullTestDir, err := filepath.Abs(cfg.Environment.TestDir)
+	fullTestDir, err := filepath.Abs(cfg.Environments[env_LR_TEST_DIR])
 	if err != nil {
 		log.Warnf("failed to get the abs path of test_dir, error: %+v", err)
 	} else {
-		cfg.Environment.TestDir = fullTestDir
+		cfg.Environments[env_LR_TEST_DIR] = fullTestDir
 	}
 }
 
-type Environment struct {
-	Elasticsearch *Elasticsearch `config:"elasticsearch"`
-	Gateway       *Gateway       `config:"gateway"`
-	Loadgen       *Loadgen       `config:"loadgen"`
-
-	// The root directory of all test cases, will automatically convert to absolute path
-	TestDir string `config:"test_dir"`
-}
-
-type Elasticsearch struct {
-	// ES server endpoint, available in template as $[[elasticsearch.endpoint]]
-	Endpoint string `config:"endpoint"`
-}
-
-type Gateway struct {
-	// The command to start gateway server
-	Command string `config:"command"`
-	// Gateway server endpoint, available in template as $[[gateway.endpoint]]
-	Endpoint string `config:"endpoint"`
-}
-
-type Loadgen struct {
-	// The command to start loadgen
-	Command string `config:"command"`
+func (cfg *AppConfig) testEnv(envVars ...string) bool {
+	for _, envVar := range envVars {
+		if v, ok := cfg.Environments[envVar]; !ok || v == "" {
+			return false
+		}
+	}
+	return true
 }
 
 /*

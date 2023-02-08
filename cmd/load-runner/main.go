@@ -27,8 +27,8 @@ func main() {
 
 	appConfig := AppConfig{}
 	if app.Setup(func() {
-		environment := &Environment{}
-		ok, err := env.ParseConfig("environment", environment)
+		environments := map[string]string{}
+		ok, err := env.ParseConfig("env", &environments)
 		if ok && err != nil {
 			panic(err)
 		}
@@ -39,7 +39,7 @@ func main() {
 			panic(err)
 		}
 
-		appConfig.Environment = environment
+		appConfig.Environments = environments
 		appConfig.Tests = tests
 		appConfig.Init()
 	}, func() {
