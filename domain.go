@@ -108,6 +108,8 @@ type RunnerConfig struct {
 	NoWarm bool `config:"no_warm"`
 	// Exit(1) if any assert failed
 	AssertInvalid bool `config:"assert_invalid"`
+	// Exit(2) if any error occurred
+	AssertError bool `config:"assert_error"`
 	// Print the request sent to server
 	LogRequests bool `config:"log_requests"`
 }

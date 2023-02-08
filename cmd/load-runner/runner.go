@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -29,7 +30,8 @@ var (
 	runnerEnvs = []string{env_LR_GATEWAY_HOST, env_LR_ELASTICSEARCH_ENDPOINT}
 )
 
-func startRunner(appConfig *AppConfig) {
+func startRunner(appConfig *AppConfig) bool {
+	defer log.Flush()
 	msgs := make([]*TestMsg, len(appConfig.Tests))
 	for i, test := range appConfig.Tests {
 		result, err := runTest(appConfig, test)
@@ -37,6 +39,7 @@ func startRunner(appConfig *AppConfig) {
 			Path: test.Path,
 		}
 		if result == nil || err != nil {
+			log.Debugf("failed to run test, error: %+v", err)
 			msg.Status = "ABORTED"
 		} else if result.Failed {
 			msg.Status = "FAILED"
@@ -48,9 +51,14 @@ func startRunner(appConfig *AppConfig) {
 		}
 		msgs[i] = msg
 	}
+	ok := true
 	for _, msg := range msgs {
-		log.Infof("[TEST][%s] [%s] duration: %d ", msg.Path, msg.Status, msg.DurationInMs)
+		log.Infof("[TEST][%s] [%s] duration: %d(ms)", msg.Path, msg.Status, msg.DurationInMs)
+		if msg.Status != "SUCCESS" {
+			ok = false
+		}
 	}
+	return ok
 }
 
 func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
@@ -80,23 +88,26 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	gatewayCmd := exec.CommandContext(ctx, gatewayPath, gatewayCmdArgs...)
 	gatewayCmd.Env = env
 
-	gatewayFailed := atomic.Bool{}
+	gatewayFailed := int32(0)
 
 	go func() {
 		output, err := gatewayCmd.Output()
 		if err != nil {
 			log.Debugf("gateway server exited: %+v, output: %s", err, string(output))
-			gatewayFailed.Store(true)
+			atomic.StoreInt32(&gatewayFailed, 1)
 		}
 	}()
 
 	gatewayReady := false
 
 	for i := 0; i < 10; i += 1 {
-		if gatewayFailed.Load() {
+		if atomic.LoadInt32(&gatewayFailed) == 1 {
 			break
 		}
-		ncCmd := exec.CommandContext(ctx, "nc", "-z", "localhost", "8000")
+		ncCmdArgs := []string{"-z"}
+		ncCmdArgs = append(ncCmdArgs, strings.Split(appConfig.Environments[env_LR_GATEWAY_HOST], ":")...)
+		log.Debugf("Executing nc with args [%+v]", ncCmdArgs)
+		ncCmd := exec.CommandContext(ctx, "nc", ncCmdArgs...)
 		err := ncCmd.Run()
 		if err != nil {
 			log.Debugf("failed to probe gateway: %+v", err)

@@ -32,6 +32,7 @@ func init() {
 }
 
 func startLoader(cfg AppConfig) *LoadStats {
+	defer log.Flush()
 
 	statsAggregator = make(chan *LoadStats, goroutines)
 	sigChan := make(chan os.Signal, 1)
@@ -229,9 +230,11 @@ func main() {
 
 		go func() {
 			aggStats := startLoader(loaderConfig)
-			time.Sleep(1 * time.Second)
 			if loaderConfig.RunnerConfig.AssertInvalid && (aggStats == nil || aggStats.NumInvalid > 0) {
 				os.Exit(1)
+			}
+			if loaderConfig.RunnerConfig.AssertError && (aggStats == nil || aggStats.NumErrs > 0) {
+				os.Exit(2)
 			}
 			os.Exit(0)
 		}()

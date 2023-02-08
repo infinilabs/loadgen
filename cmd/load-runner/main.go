@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"time"
 
 	"infini.sh/framework"
 	"infini.sh/framework/core/env"
@@ -44,8 +43,9 @@ func main() {
 		appConfig.Init()
 	}, func() {
 		go func() {
-			startRunner(&appConfig)
-			time.Sleep(1 * time.Second)
+			if !startRunner(&appConfig) {
+				os.Exit(1)
+			}
 			os.Exit(0)
 		}()
 	}, nil) {
