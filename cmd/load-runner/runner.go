@@ -27,7 +27,7 @@ type TestMsg struct {
 }
 
 var (
-	runnerEnvs = []string{env_LR_GATEWAY_HOST, env_LR_ELASTICSEARCH_ENDPOINT}
+	runnerEnvs = []string{env_LR_GATEWAY_HOST, env_LR_ELASTICSEARCH_ENDPOINT, env_LR_GATEWAY_API_HOST}
 )
 
 func startRunner(appConfig *AppConfig) bool {
@@ -104,18 +104,20 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 		if atomic.LoadInt32(&gatewayFailed) == 1 {
 			break
 		}
-		ncCmdArgs := []string{"-z"}
-		ncCmdArgs = append(ncCmdArgs, strings.Split(appConfig.Environments[env_LR_GATEWAY_HOST], ":")...)
-		log.Debugf("Executing nc with args [%+v]", ncCmdArgs)
-		ncCmd := exec.CommandContext(ctx, "nc", ncCmdArgs...)
-		err := ncCmd.Run()
-		if err != nil {
-			log.Debugf("failed to probe gateway: %+v", err)
-			time.Sleep(100 * time.Millisecond)
-			continue
+		ncApiCmdArgs := []string{"-z"}
+		ncApiCmdArgs = append(ncApiCmdArgs, strings.Split(appConfig.Environments[env_LR_GATEWAY_API_HOST], ":")...)
+		ncGatewayCmdArgs := []string{"-z"}
+		ncGatewayCmdArgs = append(ncGatewayCmdArgs, strings.Split(appConfig.Environments[env_LR_GATEWAY_HOST], ":")...)
+		log.Debugf("Executing nc with args [%+v], [%+v]", ncApiCmdArgs, ncGatewayCmdArgs)
+		ncApiCmd := exec.CommandContext(ctx, "nc", ncApiCmdArgs...)
+		ncGatewayCmd := exec.CommandContext(ctx, "nc", ncGatewayCmdArgs...)
+		apiErr, gatewayErr := ncApiCmd.Run(), ncGatewayCmd.Run()
+		if apiErr == nil || gatewayErr == nil {
+			gatewayReady = true
+			break
 		}
-		gatewayReady = true
-		break
+		log.Debugf("failed to probe gateway, api: %+v, gateway: %+v", apiErr, gatewayErr)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	if !gatewayReady {

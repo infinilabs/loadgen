@@ -15,6 +15,7 @@ type AppConfig struct {
 		- LR_LOADGEN_CMD // The command to start loadgen
 		Optional environments:
 		- LR_TEST_DIR    // The root directory of all test cases, will automatically convert to absolute path. Default: ./testing
+		- LR_GATEWAY_API_HOST // Gateway server api binding host
 	*/
 	Environments map[string]string `config:"env"`
 	Tests        []Test            `config:"tests"`
@@ -26,6 +27,7 @@ const (
 	env_LR_GATEWAY_CMD            = "LR_GATEWAY_CMD"
 	env_LR_LOADGEN_CMD            = "LR_LOADGEN_CMD"
 	env_LR_TEST_DIR               = "LR_TEST_DIR"
+	env_LR_GATEWAY_API_HOST       = "LR_GATEWAY_API_HOST"
 )
 
 func (cfg *AppConfig) Init() {
