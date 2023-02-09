@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
+	"encoding/json"
 	"io"
 	"os"
 	"regexp"
@@ -130,11 +131,21 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 	}
 
 	if item.Assert != nil {
-		event := valuesMap{
-			"_res.response.status":      resp.StatusCode(),
-			"_res.response.body":        string(respBody),
-			"_res.response.body_length": len(respBody),
+		event := util.MapStr{
+			"_res": map[string]interface{}{
+				"response": map[string]interface{}{
+					"status":      resp.StatusCode(),
+					"body":        string(respBody),
+					"body_length": len(respBody),
+				},
+			},
 		}
+		bodyJson := map[string]interface{}{}
+		jsonErr := json.Unmarshal(respBody, &bodyJson)
+		if jsonErr == nil {
+			event.Put("_res.response.body_json", bodyJson)
+		}
+		log.Debugf("assert _res: %+v", event)
 		condition, buildErr := conditions.NewCondition(item.Assert)
 		if buildErr != nil {
 			log.Error("failed to build conditions whilte assert existed, error: %+v", err)
