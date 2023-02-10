@@ -143,6 +143,7 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 					"body":        string(respBody),
 					"body_length": len(respBody),
 				},
+				"elapsed": int64(result.Duration / time.Millisecond),
 			},
 		}
 		bodyJson := map[string]interface{}{}
