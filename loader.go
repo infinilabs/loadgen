@@ -41,15 +41,16 @@ type LoadStats struct {
 	StatusCode     map[int]int
 }
 
-func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadStats) (rt *LoadGenerator) {
+func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadStats, disableHeaderNamesNormalizing bool) (rt *LoadGenerator) {
 
 	httpClient = fasthttp.Client{
-		ReadTimeout:              time.Second * 60,
-		WriteTimeout:             time.Second * 60,
-		MaxConnsPerHost:          goroutines,
-		NoDefaultUserAgentHeader: false,
-		Name:                     global.Env().GetAppLowercaseName() + "/" + global.Env().GetVersion() + "/" + global.Env().GetBuildNumber(),
-		TLSConfig:                &tls.Config{InsecureSkipVerify: true},
+		ReadTimeout:                   time.Second * 60,
+		WriteTimeout:                  time.Second * 60,
+		MaxConnsPerHost:               goroutines,
+		NoDefaultUserAgentHeader:      false,
+		DisableHeaderNamesNormalizing: disableHeaderNamesNormalizing,
+		Name:                          global.Env().GetAppLowercaseName() + "/" + global.Env().GetVersion() + "/" + global.Env().GetBuildNumber(),
+		TLSConfig:                     &tls.Config{InsecureSkipVerify: true},
 	}
 
 	rt = &LoadGenerator{duration, goroutines, statsAggregator, 0}
@@ -130,10 +131,15 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 	}
 
 	if item.Assert != nil {
+		header := map[string]interface{}{}
+		resp.Header.VisitAll(func(k, v []byte) {
+			header[string(k)] = string(v)
+		})
 		event := util.MapStr{
 			"_res": map[string]interface{}{
 				"response": map[string]interface{}{
 					"status":      resp.StatusCode(),
+					"header":      header,
 					"body":        string(respBody),
 					"body_length": len(respBody),
 				},

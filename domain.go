@@ -54,7 +54,7 @@ type Request struct {
 		Username string `config:"username"`
 		Password string `config:"password"`
 	} `config:"basic_auth"`
-	// Disable fasthttp client's header names normalizing, preserve original header key
+	// Disable fasthttp client's header names normalizing, preserve original header key, for requests
 	DisableHeaderNamesNormalizing bool `config:"disable_header_names_normalizing"`
 
 	RuntimeVariables         map[string]string `config:"runtime_variables"`
@@ -114,6 +114,8 @@ type RunnerConfig struct {
 	AssertError bool `config:"assert_error"`
 	// Print the request sent to server
 	LogRequests bool `config:"log_requests"`
+	// Disable fasthttp client's header names normalizing, preserve original header key, for responses
+	DisableHeaderNamesNormalizing bool `config:"disable_header_names_normalizing"`
 }
 
 var dict = map[string][]string{}

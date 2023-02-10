@@ -41,7 +41,7 @@ func startLoader(cfg AppConfig) *LoadStats {
 
 	flag.Parse()
 
-	loadGen := NewLoadGenerator(duration, goroutines, statsAggregator)
+	loadGen := NewLoadGenerator(duration, goroutines, statsAggregator, cfg.RunnerConfig.DisableHeaderNamesNormalizing)
 
 	if !cfg.RunnerConfig.NoWarm {
 		loadGen.Warmup(cfg)
