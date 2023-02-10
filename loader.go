@@ -41,8 +41,7 @@ type LoadStats struct {
 	StatusCode     map[int]int
 }
 
-func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadStats,
-) (rt *LoadGenerator) {
+func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadStats) (rt *LoadGenerator) {
 
 	httpClient = fasthttp.Client{
 		ReadTimeout:              time.Second * 60,
@@ -277,6 +276,9 @@ END:
 }
 
 func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebufferpool.ByteBuffer) {
+	if v.Request.DisableHeaderNamesNormalizing {
+		req.Header.DisableNormalizing()
+	}
 
 	//init runtime variables
 	runtimeVariables := map[string]string{}

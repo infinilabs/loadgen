@@ -54,6 +54,8 @@ type Request struct {
 		Username string `config:"username"`
 		Password string `config:"password"`
 	} `config:"basic_auth"`
+	// Disable fasthttp client's header names normalizing, preserve original header key
+	DisableHeaderNamesNormalizing bool `config:"disable_header_names_normalizing"`
 
 	RuntimeVariables         map[string]string `config:"runtime_variables"`
 	RuntimeBodyLineVariables map[string]string `config:"runtime_body_line_variables"`
