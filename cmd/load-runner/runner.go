@@ -27,7 +27,7 @@ type TestMsg struct {
 }
 
 var (
-	runnerEnvs = []string{env_LR_GATEWAY_HOST, env_LR_ELASTICSEARCH_ENDPOINT, env_LR_GATEWAY_API_HOST, env_LR_MINIO_API_HOST, env_LR_MINIO_API_USERNAME, env_LR_MINIO_API_PASSWORD}
+	runnerEnvs = []string{env_LR_GATEWAY_HOST, env_LR_ELASTICSEARCH_ENDPOINT, env_LR_GATEWAY_API_HOST, env_LR_MINIO_API_HOST, env_LR_MINIO_API_USERNAME, env_LR_MINIO_API_PASSWORD, env_LR_GATEWAY_FLOATING_IP_HOST}
 )
 
 func startRunner(appConfig *AppConfig) bool {
