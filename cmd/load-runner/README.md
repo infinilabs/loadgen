@@ -5,6 +5,7 @@
 - Clone `testing` repository into the directory executing `load-runner`
 - Run `make` to build the `load-runner` binary
 - Execute `./bin/load-runner -config ./suites/dev.yml` to run a test suite
+- (Optional) [Download](https://min.io/download) minio and follow up the instructions to start a local server.
 
 ## Configuration
 

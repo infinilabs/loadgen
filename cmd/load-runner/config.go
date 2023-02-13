@@ -16,6 +16,9 @@ type AppConfig struct {
 		Optional environments:
 		- LR_TEST_DIR    // The root directory of all test cases, will automatically convert to absolute path. Default: ./testing
 		- LR_GATEWAY_API_HOST // Gateway server api binding host
+		- LR_MINIO_API_HOST // minio server host
+		- LR_MINIO_API_USERNAME // minio server username
+		- LR_MINIO_API_PASSWORD // minio server password
 	*/
 	Environments map[string]string `config:"env"`
 	Tests        []Test            `config:"tests"`
@@ -28,6 +31,9 @@ const (
 	env_LR_LOADGEN_CMD            = "LR_LOADGEN_CMD"
 	env_LR_TEST_DIR               = "LR_TEST_DIR"
 	env_LR_GATEWAY_API_HOST       = "LR_GATEWAY_API_HOST"
+	env_LR_MINIO_API_HOST         = "LR_MINIO_API_HOST"
+	env_LR_MINIO_API_USERNAME     = "LR_MINIO_API_USERNAME"
+	env_LR_MINIO_API_PASSWORD     = "LR_MINIO_API_PASSWORD"
 )
 
 func (cfg *AppConfig) Init() {
