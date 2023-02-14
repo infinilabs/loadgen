@@ -19,6 +19,7 @@ type AppConfig struct {
 		- LR_MINIO_API_HOST // minio server host
 		- LR_MINIO_API_USERNAME // minio server username
 		- LR_MINIO_API_PASSWORD // minio server password
+		- LR_MINIO_TEST_BUCKET // minio testing bucket, need to set as public access
 		- LR_GATEWAY_FLOATING_IP_HOST // Gateway server floating IP host
 	*/
 	Environments map[string]string `config:"env"`
@@ -36,6 +37,7 @@ const (
 	env_LR_MINIO_API_USERNAME       = "LR_MINIO_API_USERNAME"
 	env_LR_MINIO_API_PASSWORD       = "LR_MINIO_API_PASSWORD"
 	env_LR_GATEWAY_FLOATING_IP_HOST = "LR_GATEWAY_FLOATING_IP_HOST"
+	env_LR_MINIO_TEST_BUCKET        = "LR_MINIO_TEST_BUCKET"
 )
 
 func (cfg *AppConfig) Init() {
