@@ -149,7 +149,7 @@ func doRequest(globalCtx util.MapStr, item *RequestItem, buffer *bytebufferpool.
 		event := buildCtx(resp, respBody, result)
 		// Dump globalCtx into assert event
 		event.Update(globalCtx)
-		log.Debugf("assert _res: %+v", event)
+		log.Debugf("assert _ctx: %+v", event)
 		condition, buildErr := conditions.NewCondition(item.Assert)
 		if buildErr != nil {
 			log.Error("failed to build conditions whilte assert existed, error: %+v", err)
@@ -207,7 +207,7 @@ func buildCtx(resp *fasthttp.Response, respBody []byte, result *RequestResult) u
 		header[string(k)] = string(v)
 	})
 	event := util.MapStr{
-		"_res": map[string]interface{}{
+		"_ctx": map[string]interface{}{
 			"response": map[string]interface{}{
 				"status":      resp.StatusCode(),
 				"header":      header,
@@ -220,7 +220,7 @@ func buildCtx(resp *fasthttp.Response, respBody []byte, result *RequestResult) u
 	bodyJson := map[string]interface{}{}
 	jsonErr := json.Unmarshal(respBody, &bodyJson)
 	if jsonErr == nil {
-		event.Put("_res.response.body_json", bodyJson)
+		event.Put("_ctx.response.body_json", bodyJson)
 	}
 	return event
 }

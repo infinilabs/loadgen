@@ -286,7 +286,7 @@ type RequestItem struct {
 	ResponseAssert *ResponseAssert `config:"response"`
 	// TODO: mask invalid gateway fields
 	Assert *conditions.Config `config:"assert"`
-	// Populate global context with `_res` values
+	// Populate global context with `_ctx` values
 	Register []map[string]string `config:"register"`
 }
 
