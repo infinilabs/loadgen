@@ -19,7 +19,6 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -30,7 +29,6 @@ import (
 
 	"infini.sh/framework/core/conditions"
 	"infini.sh/framework/core/errors"
-	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/util"
 )
 
@@ -98,6 +96,7 @@ type Variable struct {
 }
 
 type AppConfig struct {
+	// Access order: runtime_variables -> register -> variables
 	Variable     []Variable    `config:"variables"`
 	Requests     []RequestItem `config:"requests"`
 	RunnerConfig RunnerConfig  `config:"runner_config"`
@@ -180,12 +179,12 @@ func (config *AppConfig) Init() {
 // "2021-08-23T11:13:36.274"
 const TsLayout = "2006-01-02T15:04:05.000"
 
-func GetVariable(runtimeKV map[string]string, key string) string {
+func GetVariable(runtimeKV util.MapStr, key string) string {
 
 	if runtimeKV != nil {
-		x, ok := runtimeKV[key]
-		if ok {
-			return x
+		x, err := runtimeKV.GetValue(key)
+		if err == nil {
+			return util.ToString(x)
 		}
 	}
 
@@ -282,26 +281,13 @@ func GetVariable(runtimeKV map[string]string, key string) string {
 	return "not_found"
 }
 
-func (config *AppConfig) ReplaceVariable(runtimeKV map[string]string, v string) string {
-	matchs := regex.FindAllString(v, -1)
-	for _, v1 := range matchs {
-		old := v1
-		v1 = util.TrimLeftStr(v1, "$[[")
-		v1 = util.TrimRightStr(v1, "]]")
-		variable := GetVariable(runtimeKV, v1)
-		v = strings.ReplaceAll(v, old, fmt.Sprintf("%s", util.TrimSpaces(variable)))
-	}
-	if global.Env().IsDebug {
-		log.Trace("replaced:", v)
-	}
-	return v
-}
-
 type RequestItem struct {
 	Request        *Request        `config:"request"`
 	ResponseAssert *ResponseAssert `config:"response"`
 	// TODO: mask invalid gateway fields
 	Assert *conditions.Config `config:"assert"`
+	// Populate global context with `_res` values
+	Register []map[string]string `config:"register"`
 }
 
 type RequestResult struct {

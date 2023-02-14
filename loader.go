@@ -65,7 +65,7 @@ var resultPool = &sync.Pool{
 	},
 }
 
-func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *RequestResult) (reqBody, respBody []byte, err error) {
+func doRequest(globalCtx util.MapStr, item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *RequestResult) (reqBody, respBody []byte, err error) {
 
 	result.Reset()
 	result.Valid = true
@@ -75,7 +75,7 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 	req.ResetBody()
 	defer fasthttp.ReleaseRequest(req)
 	//replace url variable
-	item.prepareRequest(req, buffer)
+	item.prepareRequest(globalCtx, req, buffer)
 	resp := fasthttp.AcquireResponse()
 	resp.Reset()
 	resp.ResetBody()
@@ -130,27 +130,25 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 		}
 	}
 
+	if item.Register != nil {
+		event := buildCtx(resp, respBody, result)
+		log.Debugf("registering %+v, event: %+v", item.Register, event)
+		for _, item := range item.Register {
+			for dest, src := range item {
+				val, valErr := event.GetValue(src)
+				if valErr != nil {
+					log.Errorf("failed to get value with key: %s", src)
+				}
+				log.Debugf("put globalCtx %+v, %+v", dest, val)
+				globalCtx.Put(dest, val)
+			}
+		}
+	}
+
 	if item.Assert != nil {
-		header := map[string]interface{}{}
-		resp.Header.VisitAll(func(k, v []byte) {
-			header[string(k)] = string(v)
-		})
-		event := util.MapStr{
-			"_res": map[string]interface{}{
-				"response": map[string]interface{}{
-					"status":      resp.StatusCode(),
-					"header":      header,
-					"body":        string(respBody),
-					"body_length": len(respBody),
-				},
-				"elapsed": int64(result.Duration / time.Millisecond),
-			},
-		}
-		bodyJson := map[string]interface{}{}
-		jsonErr := json.Unmarshal(respBody, &bodyJson)
-		if jsonErr == nil {
-			event.Put("_res.response.body_json", bodyJson)
-		}
+		event := buildCtx(resp, respBody, result)
+		// Dump globalCtx into assert event
+		event.Update(globalCtx)
 		log.Debugf("assert _res: %+v", event)
 		condition, buildErr := conditions.NewCondition(item.Assert)
 		if buildErr != nil {
@@ -203,6 +201,30 @@ func doRequest(item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *Req
 	return
 }
 
+func buildCtx(resp *fasthttp.Response, respBody []byte, result *RequestResult) util.MapStr {
+	header := map[string]interface{}{}
+	resp.Header.VisitAll(func(k, v []byte) {
+		header[string(k)] = string(v)
+	})
+	event := util.MapStr{
+		"_res": map[string]interface{}{
+			"response": map[string]interface{}{
+				"status":      resp.StatusCode(),
+				"header":      header,
+				"body":        string(respBody),
+				"body_length": len(respBody),
+			},
+			"elapsed": int64(result.Duration / time.Millisecond),
+		},
+	}
+	bodyJson := map[string]interface{}{}
+	jsonErr := json.Unmarshal(respBody, &bodyJson)
+	if jsonErr == nil {
+		event.Put("_res.response.body_json", bodyJson)
+	}
+	return event
+}
+
 var regex = regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
 var loadgenPool = bytebufferpool.NewTaggedPool("loadgen", 0, 100*1024*1024, 10000)
 
@@ -216,6 +238,9 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	current := 0
 	result := resultPool.Get().(*RequestResult)
 	defer resultPool.Put(result)
+
+	// TODO: support concurrent access
+	globalCtx := util.MapStr{}
 
 	totalRounds := 0
 
@@ -238,7 +263,7 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 				}
 			}
 
-			reqBody, respBody, err := doRequest(&v, buffer, result)
+			reqBody, respBody, err := doRequest(globalCtx, &v, buffer, result)
 			if config.RunnerConfig.LogRequests {
 				log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url, util.SubString(string(reqBody), 0, 512))
 				log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 512))
@@ -282,17 +307,20 @@ END:
 	cfg.statsAggregator <- stats
 }
 
-func (v *RequestItem) prepareRequest(req *fasthttp.Request, bodyBuffer *bytebufferpool.ByteBuffer) {
+func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Request, bodyBuffer *bytebufferpool.ByteBuffer) {
 	if v.Request.DisableHeaderNamesNormalizing {
 		req.Header.DisableNormalizing()
 	}
 
 	//init runtime variables
-	runtimeVariables := map[string]string{}
+	// TODO: optimize overall variable populate flow
+	runtimeVariables := util.MapStr{}
+	runtimeVariables.Update(globalCtx)
+
 	if v.Request.HasVariable() {
 		if len(v.Request.RuntimeVariables) > 0 {
 			for k, v := range v.Request.RuntimeVariables {
-				runtimeVariables[k] = GetVariable(runtimeVariables, v)
+				runtimeVariables.Put(k, GetVariable(runtimeVariables, v))
 			}
 		}
 	}
@@ -371,9 +399,10 @@ func (cfg *LoadGenerator) Warmup(config AppConfig) {
 	defer loadgenPool.Put(buffer)
 	result := resultPool.Get().(*RequestResult)
 	defer resultPool.Put(result)
+	globalCtx := util.MapStr{}
 	for _, v := range config.Requests {
 
-		reqBody, respBody, err := doRequest(&v, buffer, result)
+		reqBody, respBody, err := doRequest(globalCtx, &v, buffer, result)
 
 		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url, util.SubString(string(reqBody), 0, 512))
 		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 512))
