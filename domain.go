@@ -61,12 +61,13 @@ type Request struct {
 	urlHasTemplate  bool
 	bodyHasTemplate bool
 
-	urlTemplate  *fasttemplate.Template
-	bodyTemplate *fasttemplate.Template
+	headerTemplates map[string]*fasttemplate.Template
+	urlTemplate     *fasttemplate.Template
+	bodyTemplate    *fasttemplate.Template
 }
 
 func (req *Request) HasVariable() bool {
-	return req.urlHasTemplate || req.bodyHasTemplate
+	return req.urlHasTemplate || req.bodyHasTemplate || len(req.headerTemplates) > 0
 }
 
 type ResponseAssert struct {
@@ -152,6 +153,7 @@ func (config *AppConfig) Init() {
 
 	var err error
 	for _, v := range config.Requests {
+		v.Request.headerTemplates = map[string]*fasttemplate.Template{}
 
 		if util.ContainStr(v.Request.Url, "$[[") {
 			v.Request.urlHasTemplate = true
@@ -170,6 +172,17 @@ func (config *AppConfig) Init() {
 			v.Request.bodyTemplate, err = fasttemplate.NewTemplate(v.Request.Body, "$[[", "]]")
 			if err != nil {
 				panic(err)
+			}
+		}
+
+		for _, headers := range v.Request.Headers {
+			for headerK, headerV := range headers {
+				if util.ContainStr(headerV, "$") {
+					v.Request.headerTemplates[headerK], err = fasttemplate.NewTemplate(headerV, "$[[", "]]")
+					if err != nil {
+						panic(err)
+					}
+				}
 			}
 		}
 	}

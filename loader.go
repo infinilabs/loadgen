@@ -263,11 +263,12 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 				}
 			}
 
-			reqBody, respBody, err := doRequest(globalCtx, &v, buffer, result)
 			if config.RunnerConfig.LogRequests {
-				log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url, util.SubString(string(reqBody), 0, 512))
-				log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 512))
+				log.Infof("[%v] %v, %v - %v", v.Request.Method, v.Request.Url, v.Request.Headers, util.SubString(string(reqBody), 0, 512))
+				log.Infof("status: %v, %v, %v", result.Status, err, util.SubString(string(respBody), 0, 512))
 			}
+
+			reqBody, respBody, err := doRequest(globalCtx, &v, buffer, result)
 
 			if !result.Valid {
 				stats.NumInvalid++
@@ -336,6 +337,8 @@ func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Reques
 
 	req.SetRequestURI(url)
 
+	log.Debugf("final request url: %s", url)
+
 	//prepare method
 	req.Header.SetMethod(v.Request.Method)
 
@@ -344,11 +347,20 @@ func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Reques
 	}
 
 	if len(v.Request.Headers) > 0 {
-		for _, v := range v.Request.Headers {
-			for k1, v1 := range v {
-				req.Header.Set(k1, v1)
+		for _, headers := range v.Request.Headers {
+			for headerK, headerV := range headers {
+				if tmpl, ok := v.Request.headerTemplates[headerK]; ok {
+					headerV = tmpl.ExecuteFuncString(func(w io.Writer, tag string) (int, error) {
+						variable := GetVariable(runtimeVariables, tag)
+						return w.Write(util.UnsafeStringToBytes(variable))
+					})
+				}
+				req.Header.Set(headerK, headerV)
 			}
 		}
+	}
+	if global.Env().IsDebug {
+		log.Debugf("final request headers: %s", req.Header.String())
 	}
 
 	//req.Header.Set("User-Agent", UserAgent)
