@@ -263,12 +263,12 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 				}
 			}
 
+			reqBody, respBody, err := doRequest(globalCtx, &v, buffer, result)
+
 			if config.RunnerConfig.LogRequests {
 				log.Infof("[%v] %v, %v - %v", v.Request.Method, v.Request.Url, v.Request.Headers, util.SubString(string(reqBody), 0, 512))
 				log.Infof("status: %v, %v, %v", result.Status, err, util.SubString(string(respBody), 0, 512))
 			}
-
-			reqBody, respBody, err := doRequest(globalCtx, &v, buffer, result)
 
 			if !result.Valid {
 				stats.NumInvalid++
