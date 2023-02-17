@@ -90,11 +90,28 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 
 	gatewayFailed := int32(0)
 
+	gatewayExited := make(chan int)
 	go func() {
 		output, err := gatewayCmd.Output()
 		if err != nil {
 			log.Debugf("gateway server exited: %+v, output: %s", err, string(output))
+			log.Debugf("============================== Gateway Exit Info [Start] =============================")
+			if osExit, ok := err.(*exec.ExitError); ok {
+				log.Debugf(string(osExit.Stderr))
+			}
+			log.Debugf("============================== Gateway Exit Info [End] =============================")
 			atomic.StoreInt32(&gatewayFailed, 1)
+		}
+		gatewayExited <- 1
+	}()
+
+	defer func() {
+		log.Debug("waiting for 5s to stop the gateway")
+		gatewayCmd.Process.Signal(os.Interrupt)
+		timeout := time.NewTimer(5 * time.Second)
+		select {
+		case <-gatewayExited:
+		case <-timeout.C:
 		}
 	}()
 
@@ -134,9 +151,11 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	log.Debug("loadgen output: ", string(output))
 	if err != nil {
 		log.Debugf("failed to run test case, error: %+v", err)
+		log.Debugf("============================== Loadgen Exit Info [Start] =============================")
 		if osExit, ok := err.(*exec.ExitError); ok {
 			log.Debugf(string(osExit.Stderr))
 		}
+		log.Debugf("============================== Loadgen Exit Info [End] =============================")
 		testResult.Failed = true
 	}
 	return testResult, nil
