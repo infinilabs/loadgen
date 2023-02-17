@@ -149,7 +149,9 @@ func doRequest(globalCtx util.MapStr, item *RequestItem, buffer *bytebufferpool.
 		event := buildCtx(resp, respBody, result)
 		// Dump globalCtx into assert event
 		event.Update(globalCtx)
-		log.Debugf("assert _ctx: %+v", event)
+		if len(respBody) < 4096 {
+			log.Debugf("assert _ctx: %+v", event)
+		}
 		condition, buildErr := conditions.NewCondition(item.Assert)
 		if buildErr != nil {
 			log.Error("failed to build conditions whilte assert existed, error: %+v", err)
