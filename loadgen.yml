@@ -1,25 +1,34 @@
-statsd:
-  enabled: false
-  host: 192.168.3.98
-  port: 8125
-  namespace: loadgen.
+env:
+  ES_USERNAME: elastic
+  ES_PASSWORD: elastic
+  ES_ENDPOINT: http://localhost:8000
+runner:
+  # total_rounds: 1
+  no_warm: false
+  log_requests: false
+  assert_invalid: false
+  assert_error: false
 variables:
   - name: ip
     type: file
     path: dict/ip.txt
   - name: id
     type: sequence
+  - name: id
+    type: sequence64
   - name: uuid
     type: uuid
   - name: now_local
     type: now_local
   - name: now_utc
     type: now_utc
+  - name: now_utc_lite
+    type: now_utc_lite
   - name: now_unix
     type: now_unix
   - name: now_with_format
     type: now_with_format #https://programming.guide/go/format-parse-string-time-date-example.html
-    format: "2006-01-02T15:04:05-0700" #2006-01-02T15:04:05
+    format: '2006-01-02T15:04:05-0700' #2006-01-02T15:04:05
   - name: suffix
     type: range
     from: 10
@@ -30,22 +39,17 @@ variables:
     to: 1
   - name: list
     type: list
-    data: 
-    - "medcl"
-    - "abc"
-    - "efg"
-    - "xyz"
+    data:
+      - 'medcl'
+      - 'abc'
+      - 'efg'
+      - 'xyz'
   - name: id_list
     type: random_array
     variable_type: number #number/string
     variable_key: suffix #variable key to get array items
     square_bracket: false
     size: 10 #how many items for array
-  - name: id_bitmap
-    type: int_array_bitmap
-    from: 1
-    to: 100000
-    size: 100
 requests:
   - request:
       method: POST
@@ -54,19 +58,7 @@ requests:
       runtime_body_line_variables:
         routing_no: uuid
       basic_auth:
-        username: ingest
-        password: managemDFSDFSDFent
-      url: http://localhost:8000/_search
-      body: '{
-  "track_total_hits": true,
-  "size": 0,
-  "query": {
-   "terms": {
-     "patent_id": [
-        $[[id_list]]
-     ]
-   }
-
-  }
-}
-'
+        username: $[[env.ES_USERNAME]]
+        password: $[[env.ES_PASSWORD]]
+      url: $[[env.ES_ENDPOINT]/medcl/_search
+      body: '{ "track_total_hits": true, "size": 0, "query": { "terms": { "patent_id": [ $[[id_list]] ] } } } '
