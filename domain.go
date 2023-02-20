@@ -70,12 +70,6 @@ func (req *Request) HasVariable() bool {
 	return req.urlHasTemplate || req.bodyHasTemplate || len(req.headerTemplates) > 0
 }
 
-type ResponseAssert struct {
-	Status   int    `config:"status"`
-	Body     string `config:"body"`
-	BodySize int    `config:"body_size"`
-}
-
 type Variable struct {
 	Type   string   `config:"type"`
 	Name   string   `config:"name"`
@@ -98,9 +92,9 @@ type Variable struct {
 
 type AppConfig struct {
 	// Access order: runtime_variables -> register -> variables
-	Variable     []Variable    `config:"variables"`
-	Requests     []RequestItem `config:"requests"`
-	RunnerConfig RunnerConfig  `config:"runner_config"`
+	Variable     []Variable
+	Requests     []RequestItem
+	RunnerConfig RunnerConfig
 }
 
 type RunnerConfig struct {
@@ -279,24 +273,24 @@ func GetVariable(runtimeKV util.MapStr, key string) string {
 				str.WriteString("]")
 			}
 			return str.String()
+		case "file", "list":
+			d, ok := dict[key]
+			if ok {
+
+				if len(d) == 1 {
+					return d[0]
+				}
+				offset := rand.Intn(len(d))
+				return d[offset]
+			}
 		}
 	}
 
-	d, ok := dict[key]
-	if ok {
-
-		if len(d) == 1 {
-			return d[0]
-		}
-		offset := rand.Intn(len(d))
-		return d[offset]
-	}
 	return "not_found"
 }
 
 type RequestItem struct {
-	Request        *Request        `config:"request"`
-	ResponseAssert *ResponseAssert `config:"response"`
+	Request *Request `config:"request"`
 	// TODO: mask invalid gateway fields
 	Assert *conditions.Config `config:"assert"`
 	// Populate global context with `_ctx` values

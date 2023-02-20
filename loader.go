@@ -165,41 +165,8 @@ func doRequest(globalCtx util.MapStr, item *RequestItem, buffer *bytebufferpool.
 			return
 		}
 		return
-	} else if item.ResponseAssert != nil {
-		if global.Env().IsDebug {
-			log.Trace(string(respBody))
-		}
-
-		if item.ResponseAssert.Status > 0 {
-			if resp.StatusCode() != item.ResponseAssert.Status {
-				if global.Env().IsDebug {
-					log.Error("invalid status,", item.Request.Url, resp.StatusCode(), len(respBody), string(respBody))
-				}
-				result.Valid = false
-				return
-			}
-		}
-
-		if item.ResponseAssert.BodySize > 0 {
-			if len(respBody) != item.ResponseAssert.BodySize {
-				if global.Env().IsDebug {
-					log.Trace("invalid response size,", item.Request.Url, resp.StatusCode(), len(respBody), respBody)
-				}
-				result.Valid = false
-				return
-			}
-		}
-
-		if item.ResponseAssert.Body != "" {
-			if len(respBody) != len(item.ResponseAssert.Body) || string(respBody) != item.ResponseAssert.Body {
-				if global.Env().IsDebug {
-					log.Trace("invalid response,", item.Request.Url, resp.StatusCode(), ",", len(respBody), ",", respBody)
-				}
-				result.Valid = false
-				return
-			}
-		}
 	}
+
 	return
 }
 
