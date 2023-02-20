@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"errors"
+	"net"
 	"os"
 	"os/exec"
 	"path"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -25,6 +25,10 @@ type TestMsg struct {
 	Status       string `json:"status"`
 	DurationInMs int64  `json:"duration_in_ms"`
 }
+
+const (
+	portTestTimeout = 100 * time.Millisecond
+)
 
 func startRunner(appConfig *AppConfig) bool {
 	defer log.Flush()
@@ -64,78 +68,44 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 
 	testPath := path.Join(appConfig.Environments[env_LR_TEST_DIR], test.Path)
 
-	loadgenConfigPath, gatewayConfigPath := path.Join(testPath, "loadgen.yml"), path.Join(testPath, "gateway.yml")
+	loadgenConfigPath := path.Join(testPath, "loadgen.yml")
 
 	log.Debugf("Executing gateway & loadgen within %s", testPath)
 	if err := os.Chdir(testPath); err != nil {
 		return nil, err
 	}
 
-	loadgenPath := appConfig.Environments[env_LR_LOADGEN_CMD]
-	gatewayPath := appConfig.Environments[env_LR_GATEWAY_CMD]
-	loadgenCmdArgs := []string{"-config", loadgenConfigPath}
-	gatewayCmdArgs := []string{"-config", gatewayConfigPath}
-	log.Debugf("Executing loadgen with args [%+v]", loadgenCmdArgs)
-	log.Debugf("Executing gateway with args [%+v]", gatewayCmdArgs)
 	env := generateEnv(appConfig)
 	log.Debugf("Executing gateway/loadgen with environment [%+v]", env)
+
+	loadgenPath := appConfig.Environments[env_LR_LOADGEN_CMD]
+	loadgenCmdArgs := []string{"-config", loadgenConfigPath}
+
+	if appConfig.Environments[env_LR_GATEWAY_CMD] != "" {
+		gatewayConfigPath := path.Join(testPath, "gateway.yml")
+		if _, err := os.Stat(gatewayConfigPath); err == nil {
+			// Start gateway server
+			gatewayPath, gatewayHost, gatewayApiHost := appConfig.Environments[env_LR_GATEWAY_CMD], appConfig.Environments[env_LR_GATEWAY_HOST], appConfig.Environments[env_LR_GATEWAY_API_HOST]
+			gatewayCmd, gatewayExited, err := runGateway(ctx, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost, env)
+			if err != nil {
+				return nil, err
+			}
+
+			defer func() {
+				log.Debug("waiting for 5s to stop the gateway")
+				gatewayCmd.Process.Signal(os.Interrupt)
+				timeout := time.NewTimer(5 * time.Second)
+				select {
+				case <-gatewayExited:
+				case <-timeout.C:
+				}
+			}()
+		}
+	}
+
+	log.Debugf("Executing loadgen with args [%+v]", loadgenCmdArgs)
 	loadgenCmd := exec.CommandContext(ctx, loadgenPath, loadgenCmdArgs...)
 	loadgenCmd.Env = env
-	gatewayCmd := exec.CommandContext(ctx, gatewayPath, gatewayCmdArgs...)
-	gatewayCmd.Env = env
-
-	gatewayFailed := int32(0)
-
-	gatewayExited := make(chan int)
-	go func() {
-		output, err := gatewayCmd.Output()
-		if err != nil {
-			log.Debugf("gateway server exited: %+v, output: %s", err, string(output))
-			log.Debugf("============================== Gateway Exit Info [Start] =============================")
-			if osExit, ok := err.(*exec.ExitError); ok {
-				log.Debugf(string(osExit.Stderr))
-			}
-			log.Debugf("============================== Gateway Exit Info [End] =============================")
-			atomic.StoreInt32(&gatewayFailed, 1)
-		}
-		gatewayExited <- 1
-	}()
-
-	defer func() {
-		log.Debug("waiting for 5s to stop the gateway")
-		gatewayCmd.Process.Signal(os.Interrupt)
-		timeout := time.NewTimer(5 * time.Second)
-		select {
-		case <-gatewayExited:
-		case <-timeout.C:
-		}
-	}()
-
-	gatewayReady := false
-
-	for i := 0; i < 10; i += 1 {
-		if atomic.LoadInt32(&gatewayFailed) == 1 {
-			break
-		}
-		ncApiCmdArgs := []string{"-z"}
-		ncApiCmdArgs = append(ncApiCmdArgs, strings.Split(appConfig.Environments[env_LR_GATEWAY_API_HOST], ":")...)
-		ncGatewayCmdArgs := []string{"-z"}
-		ncGatewayCmdArgs = append(ncGatewayCmdArgs, strings.Split(appConfig.Environments[env_LR_GATEWAY_HOST], ":")...)
-		log.Debugf("Executing nc with args [%+v], [%+v]", ncApiCmdArgs, ncGatewayCmdArgs)
-		ncApiCmd := exec.CommandContext(ctx, "nc", ncApiCmdArgs...)
-		ncGatewayCmd := exec.CommandContext(ctx, "nc", ncGatewayCmdArgs...)
-		apiErr, gatewayErr := ncApiCmd.Run(), ncGatewayCmd.Run()
-		if apiErr == nil || gatewayErr == nil {
-			gatewayReady = true
-			break
-		}
-		log.Debugf("failed to probe gateway, api: %+v, gateway: %+v", apiErr, gatewayErr)
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	if !gatewayReady {
-		return nil, errors.New("can't start gateway")
-	}
 
 	startTime := time.Now()
 	testResult := &TestResult{}
@@ -155,6 +125,61 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 		testResult.Failed = true
 	}
 	return testResult, nil
+}
+
+func runGateway(ctx context.Context, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost string, env []string) (*exec.Cmd, chan int, error) {
+	gatewayCmdArgs := []string{"-config", gatewayConfigPath}
+	log.Debugf("Executing gateway with args [%+v]", gatewayCmdArgs)
+	gatewayCmd := exec.CommandContext(ctx, gatewayPath, gatewayCmdArgs...)
+	gatewayCmd.Env = env
+
+	gatewayFailed := int32(0)
+	gatewayExited := make(chan int)
+
+	go func() {
+		output, err := gatewayCmd.Output()
+		if err != nil {
+			log.Debugf("gateway server exited: %+v, output: %s", err, string(output))
+			log.Debugf("============================== Gateway Exit Info [Start] =============================")
+			if osExit, ok := err.(*exec.ExitError); ok {
+				log.Debugf(string(osExit.Stderr))
+			}
+			log.Debugf("============================== Gateway Exit Info [End] =============================")
+			atomic.StoreInt32(&gatewayFailed, 1)
+		}
+		gatewayExited <- 1
+	}()
+
+	gatewayReady := false
+
+	// Check whether gateway is ready.
+	for i := 0; i < 10; i += 1 {
+		if atomic.LoadInt32(&gatewayFailed) == 1 {
+			break
+		}
+		log.Debugf("Checking whether %s or %s is ready...", gatewayHost, gatewayApiHost)
+		if testPort(gatewayHost) || testPort(gatewayApiHost) {
+			gatewayReady = true
+			break
+		}
+		log.Debugf("failed to probe gateway, retrying")
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !gatewayReady {
+		return nil, nil, errors.New("can't start gateway")
+	}
+
+	return gatewayCmd, gatewayExited, nil
+}
+
+func testPort(host string) bool {
+	conn, err := net.DialTimeout("tcp", host, portTestTimeout)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 func generateEnv(appConfig *AppConfig) (env []string) {

@@ -27,12 +27,16 @@ type AppConfig struct {
 }
 
 const (
+	// Required configurations
+	env_LR_LOADGEN_CMD = "LR_LOADGEN_CMD"
+	env_LR_TEST_DIR    = "LR_TEST_DIR"
+
+	// Gateway-related configurations
 	env_LR_GATEWAY_CMD      = "LR_GATEWAY_CMD"
 	env_LR_GATEWAY_HOST     = "LR_GATEWAY_HOST"
 	env_LR_GATEWAY_API_HOST = "LR_GATEWAY_API_HOST"
-	env_LR_LOADGEN_CMD      = "LR_LOADGEN_CMD"
-	env_LR_TEST_DIR         = "LR_TEST_DIR"
 
+	// Standard environments used by `testing` repo
 	env_LR_ELASTICSEARCH_ENDPOINT   = "LR_ELASTICSEARCH_ENDPOINT"
 	env_LR_MINIO_API_HOST           = "LR_MINIO_API_HOST"
 	env_LR_MINIO_API_USERNAME       = "LR_MINIO_API_USERNAME"
@@ -42,7 +46,7 @@ const (
 )
 
 func (cfg *AppConfig) Init() {
-	if !cfg.testEnv(env_LR_GATEWAY_CMD, env_LR_GATEWAY_HOST, env_LR_LOADGEN_CMD) {
+	if !cfg.testEnv(env_LR_LOADGEN_CMD) {
 		panic("invalid environment configurations")
 	}
 	if cfg.Environments[env_LR_TEST_DIR] == "" {
