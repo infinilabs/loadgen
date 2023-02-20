@@ -26,10 +26,6 @@ type TestMsg struct {
 	DurationInMs int64  `json:"duration_in_ms"`
 }
 
-var (
-	runnerEnvs = []string{env_LR_GATEWAY_HOST, env_LR_ELASTICSEARCH_ENDPOINT, env_LR_GATEWAY_API_HOST, env_LR_MINIO_API_HOST, env_LR_MINIO_API_USERNAME, env_LR_MINIO_API_PASSWORD, env_LR_GATEWAY_FLOATING_IP_HOST, env_LR_MINIO_TEST_BUCKET}
-)
-
 func startRunner(appConfig *AppConfig) bool {
 	defer log.Flush()
 	msgs := make([]*TestMsg, len(appConfig.Tests))
@@ -162,12 +158,8 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 }
 
 func generateEnv(appConfig *AppConfig) (env []string) {
-	envMap := appConfig.Environments
-	for _, k := range runnerEnvs {
-		v, ok := envMap[k]
-		if ok {
-			env = append(env, k+"="+v)
-		}
+	for k, v := range appConfig.Environments {
+		env = append(env, k+"="+v)
 	}
 	return
 }

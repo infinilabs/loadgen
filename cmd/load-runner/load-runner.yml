@@ -1,7 +1,16 @@
 env:
-  LR_ELASTICSEARCH_ENDPOINT: http://127.0.0.1:19201
-  LR_GATEWAY_HOST: localhost:8000
-  LR_GATEWAY_CMD:  /Users/kassian/Workspace/infini/src/infini.sh/gateway/bin/gateway
-  LR_LOADGEN_CMD:  /Users/kassian/Workspace/infini/src/infini.sh/loadgen/bin/loadgen
+  LR_GATEWAY_CMD: ./bin/gateway # The path to the executable of INFINI Gateway
+  LR_GATEWAY_HOST: 0.0.0.0:18000 # The binding host of the INFINI Gateway
+  LR_GATEWAY_API_HOST: 0.0.0.0:19000 # The binding host of the INFINI Gateway API server
+  LR_LOADGEN_CMD: ./bin/loadgen # The path to the executable of loadgen tool.
+  LR_TEST_DIR: ./testing
+  # Set up other envrionments for the gateway and loadgen
+  LR_ELASTICSEARCH_ENDPOINT: http://localhost:19201
 tests:
-  - path: setup/gateway/cases/elasticsearch/elasticsearch-with-cache
+  # Each path should contains two files:
+  #
+  # - gateway.yml: the configuration to start the INFINI Gateway.
+  # - loadgen.yml: the configuration to run the loadgen tool.
+  #
+  # The environments set in `env` section will be passed to the INFINI Gateway and loadgen.
+  - path: cases/gateway/echo/echo_with_context
