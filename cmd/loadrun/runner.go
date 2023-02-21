@@ -87,7 +87,7 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	log.Debugf("Executing gateway/loadgen with environment [%+v]", env)
 
 	loadgenPath := appConfig.Environments[env_LR_LOADGEN_CMD]
-	loadgenCmdArgs := []string{"-config", loadgenConfigPath, "-log", "off", "-silent"}
+	loadgenCmdArgs := []string{"-config", loadgenConfigPath, "-log", "off"}
 
 	if appConfig.Environments[env_LR_GATEWAY_CMD] != "" {
 		gatewayConfigPath := path.Join(testPath, "gateway.yml")
@@ -193,5 +193,7 @@ func generateEnv(appConfig *AppConfig) (env []string) {
 	for k, v := range appConfig.Environments {
 		env = append(env, k+"="+v)
 	}
+	// Disable greeting messages
+	env = append(env, "SILENT_GREETINGS=1")
 	return
 }
