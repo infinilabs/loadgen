@@ -1,7 +1,7 @@
 SHELL=/bin/bash
 
 # APP info
-APP_NAME := load-runner
+APP_NAME := loadrun
 APP_VERSION := 1.0.0_SNAPSHOT
 APP_CONFIG := $(APP_NAME).yml
 APP_EOLDate ?= "2023-12-31T10:10:10Z"

@@ -6,7 +6,7 @@ import (
 	"infini.sh/framework"
 	"infini.sh/framework/core/env"
 	"infini.sh/framework/core/util"
-	"infini.sh/loadgen/cmd/load-runner/config"
+	"infini.sh/loadgen/cmd/loadrun/config"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 
 	terminalFooter := ("")
 
-	app := framework.NewApp("load-runner", "A testing suite runner",
+	app := framework.NewApp("loadrun", "A testing suite runner",
 		util.TrimSpaces(config.Version), util.TrimSpaces(config.BuildNumber), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
 
 	app.Init(nil)
