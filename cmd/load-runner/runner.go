@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -14,16 +16,19 @@ import (
 )
 
 type TestResult struct {
-	Failed       bool  `json:"failed"`
-	DurationInMs int64 `json:"duration_in_ms"`
-	Error        error `json:"error"`
+	Failed        bool      `json:"failed"`
+	Time          time.Time `json:"time"`
+	DurationInMs  int64     `json:"duration_in_ms"`
+	Error         error     `json:"error"`
+	LoadgenOutput []byte    `json:"loadgen_output"`
 }
 
 type TestMsg struct {
-	Path string `json:"path"`
-	// ABORTED/FAILED/SUCCESS
-	Status       string `json:"status"`
-	DurationInMs int64  `json:"duration_in_ms"`
+	Time         time.Time `json:"time"`
+	Path         string    `json:"path"`
+	Status       string    `json:"status"` // ABORTED/FAILED/SUCCESS
+	DurationInMs int64     `json:"duration_in_ms"`
+	Result       []byte    `json:"result"`
 }
 
 const (
@@ -36,7 +41,9 @@ func startRunner(appConfig *AppConfig) bool {
 	for i, test := range appConfig.Tests {
 		result, err := runTest(appConfig, test)
 		msg := &TestMsg{
-			Path: test.Path,
+			Path:   test.Path,
+			Result: result.LoadgenOutput,
+			Time:   result.Time,
 		}
 		if result == nil || err != nil {
 			log.Debugf("failed to run test, error: %+v", err)
@@ -53,10 +60,11 @@ func startRunner(appConfig *AppConfig) bool {
 	}
 	ok := true
 	for _, msg := range msgs {
-		log.Infof("[TEST][%s] [%s] duration: %d(ms)", msg.Path, msg.Status, msg.DurationInMs)
+		fmt.Printf("[%s][TEST][%s] [%s] duration: %d(ms)\n", msg.Time.Format("2006-01-02 15:04:05"), msg.Status, msg.Path, msg.DurationInMs)
 		if msg.Status != "SUCCESS" {
 			ok = false
 		}
+		fmt.Println(string(msg.Result))
 	}
 	return ok
 }
@@ -79,7 +87,7 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	log.Debugf("Executing gateway/loadgen with environment [%+v]", env)
 
 	loadgenPath := appConfig.Environments[env_LR_LOADGEN_CMD]
-	loadgenCmdArgs := []string{"-config", loadgenConfigPath}
+	loadgenCmdArgs := []string{"-config", loadgenConfigPath, "-log", "off", "-silent"}
 
 	if appConfig.Environments[env_LR_GATEWAY_CMD] != "" {
 		gatewayConfigPath := path.Join(testPath, "gateway.yml")
@@ -104,26 +112,25 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	}
 
 	log.Debugf("Executing loadgen with args [%+v]", loadgenCmdArgs)
+	loadgenOutput := &bytes.Buffer{}
 	loadgenCmd := exec.CommandContext(ctx, loadgenPath, loadgenCmdArgs...)
+	loadgenCmd.Stdout = loadgenOutput
+	loadgenCmd.Stderr = loadgenOutput
 	loadgenCmd.Env = env
 
 	startTime := time.Now()
 	testResult := &TestResult{}
 	defer func() {
-		testResult.DurationInMs = int64(time.Now().Sub(startTime) / time.Millisecond)
+		testResult.Time = time.Now()
+		testResult.DurationInMs = int64(testResult.Time.Sub(startTime) / time.Millisecond)
 	}()
 
-	output, err := loadgenCmd.Output()
-	log.Debug("loadgen output: ", string(output))
+	err := loadgenCmd.Run()
 	if err != nil {
 		log.Debugf("failed to run test case, error: %+v", err)
-		log.Debugf("============================== Loadgen Exit Info [Start] =============================")
-		if osExit, ok := err.(*exec.ExitError); ok {
-			log.Debugf(string(osExit.Stderr))
-		}
-		log.Debugf("============================== Loadgen Exit Info [End] =============================")
 		testResult.Failed = true
 	}
+	testResult.LoadgenOutput = loadgenOutput.Bytes()
 	return testResult, nil
 }
 

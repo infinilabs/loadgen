@@ -43,41 +43,36 @@ func startLoader(cfg AppConfig) *LoadStats {
 
 	loadGen := NewLoadGenerator(duration, goroutines, statsAggregator, cfg.RunnerConfig.DisableHeaderNamesNormalizing)
 
+	leftDoc := reqLimit
+
 	if !cfg.RunnerConfig.NoWarm {
-		loadGen.Warmup(cfg)
+		reqCount := loadGen.Warmup(cfg)
+		leftDoc -= reqCount
+	}
+
+	if reqLimit >= 0 && leftDoc <= 0 {
+		log.Warn("No request to execute, exit now\n")
+		return nil
 	}
 
 	var reqPerGoroutines int
 	if reqLimit > 0 {
-		if goroutines > reqLimit {
-			goroutines = reqLimit - 1
+		if goroutines > leftDoc {
+			goroutines = leftDoc
 		}
 
-		reqPerGoroutines = int((reqLimit + 1) / goroutines)
-	}
-	leftDoc := reqLimit - 1
-
-	if leftDoc == 0 {
-		log.Warn("only one request was executed\n")
-		return nil
+		reqPerGoroutines = int((leftDoc + 1) / goroutines)
 	}
 
 	for i := 0; i < goroutines; i++ {
 		thisDoc := -1
 		if reqPerGoroutines > 0 {
-			if leftDoc > 0 {
-
-				if i == goroutines-1 {
-					thisDoc = leftDoc
-				} else {
-					if leftDoc > reqPerGoroutines {
-						thisDoc = reqPerGoroutines
-					} else {
-						thisDoc = leftDoc
-					}
-					leftDoc = leftDoc - thisDoc
-				}
+			if leftDoc > reqPerGoroutines {
+				thisDoc = reqPerGoroutines
+			} else {
+				thisDoc = leftDoc
 			}
+			leftDoc -= thisDoc
 		}
 
 		go loadGen.Run(cfg, thisDoc)
@@ -113,7 +108,7 @@ func startLoader(cfg AppConfig) *LoadStats {
 	}
 
 	if aggStats.NumRequests == 0 {
-		fmt.Println("Error: No statistics collected / no requests found")
+		log.Error("Error: No statistics collected / no requests found")
 		return nil
 	}
 
@@ -127,6 +122,9 @@ func startLoader(cfg AppConfig) *LoadStats {
 	reqRate := float64(aggStats.NumRequests) / avgThreadDur.Seconds()
 	avgReqTime := aggStats.TotDuration / time.Duration(aggStats.NumRequests)
 	bytesRate := float64(aggStats.TotRespSize+aggStats.TotReqSize) / avgThreadDur.Seconds()
+
+	// Flush before printing stats to avoid logging mixing with stats
+	log.Flush()
 
 	fmt.Printf("\n%v requests in %v, %v sent, %v received\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize)}, util.ByteValue{float64(aggStats.TotRespSize)})
 
@@ -230,11 +228,13 @@ func main() {
 
 		go func() {
 			aggStats := startLoader(loaderConfig)
-			if loaderConfig.RunnerConfig.AssertInvalid && (aggStats == nil || aggStats.NumInvalid > 0) {
-				os.Exit(1)
-			}
-			if loaderConfig.RunnerConfig.AssertError && (aggStats == nil || aggStats.NumErrs > 0) {
-				os.Exit(2)
+			if aggStats != nil {
+				if loaderConfig.RunnerConfig.AssertInvalid && aggStats.NumInvalid > 0 {
+					os.Exit(1)
+				}
+				if loaderConfig.RunnerConfig.AssertError && aggStats.NumErrs > 0 {
+					os.Exit(2)
+				}
 			}
 			os.Exit(0)
 		}()

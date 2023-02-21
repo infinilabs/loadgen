@@ -302,7 +302,7 @@ type RequestResult struct {
 	ResponseSize int
 	Status       int
 	Error        bool
-	Valid        bool
+	Invalid      bool
 	Duration     time.Duration
 }
 
@@ -311,6 +311,6 @@ func (result *RequestResult) Reset() {
 	result.Status = 0
 	result.RequestSize = 0
 	result.ResponseSize = 0
-	result.Valid = false
+	result.Invalid = false
 	result.Duration = 0
 }

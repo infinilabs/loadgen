@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"regexp"
@@ -66,10 +67,9 @@ var resultPool = &sync.Pool{
 }
 
 func doRequest(globalCtx util.MapStr, item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *RequestResult) (reqBody, respBody []byte, err error) {
-
 	result.Reset()
-	result.Valid = true
 	buffer.Reset()
+
 	req := fasthttp.AcquireRequest()
 	req.Reset()
 	req.ResetBody()
@@ -96,38 +96,13 @@ func doRequest(globalCtx util.MapStr, item *RequestItem, buffer *bytebufferpool.
 	reqBody = req.GetRawBody()
 	respBody = resp.GetRawBody()
 
-	if resp.StatusCode() == 0 {
-		if err != nil {
-			if global.Env().IsDebug {
-				log.Error(err, string(respBody))
-			}
-		}
-	} else if resp.StatusCode() != 200 {
-		if global.Env().IsDebug {
-			log.Error(err, string(respBody))
-		}
-	}
-
-	//skip verify
+	// skip verify
 	if err != nil {
 		result.Error = true
-		if global.Env().IsDebug {
-			log.Error(err, string(respBody))
+		if item.Assert != nil {
+			result.Invalid = true
 		}
 		return
-	}
-
-	//skip verify
-	if resp == nil {
-		result.Valid = false
-		return
-	}
-
-	if global.Env().IsDebug {
-		if global.Env().IsDebug {
-			log.Debug(string(reqBody))
-			log.Debug(string(respBody))
-		}
 	}
 
 	if item.Register != nil {
@@ -158,13 +133,8 @@ func doRequest(globalCtx util.MapStr, item *RequestItem, buffer *bytebufferpool.
 			return
 		}
 		if !condition.Check(event) {
-			if global.Env().IsDebug {
-				log.Error("assert failed")
-			}
-			result.Valid = false
-			return
+			result.Invalid = true
 		}
-		return
 	}
 
 	return
@@ -204,13 +174,13 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	limiter := rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Second*1)
 	buffer := loadgenPool.Get()
 	defer loadgenPool.Put(buffer)
-	current := 0
 	result := resultPool.Get().(*RequestResult)
 	defer resultPool.Put(result)
 
 	// TODO: support concurrent access
 	globalCtx := util.MapStr{}
 
+	totalRequests := 0
 	totalRounds := 0
 
 	for time.Since(start).Seconds() <= float64(cfg.duration) && atomic.LoadInt32(&cfg.interrupted) == 0 {
@@ -222,7 +192,11 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 		buffer.Reset()
 		result.Reset()
 
-		for _, v := range config.Requests {
+		for idx, item := range config.Requests {
+			if countLimit > 0 && totalRequests >= countLimit {
+				goto END
+			}
+			totalRequests += 1
 
 			if rateLimit > 0 {
 			RetryRateLimit:
@@ -232,15 +206,11 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 				}
 			}
 
-			reqBody, respBody, err := doRequest(globalCtx, &v, buffer, result)
+			reqBody, respBody, err := doRequest(globalCtx, &item, buffer, result)
 
 			if config.RunnerConfig.LogRequests {
-				log.Infof("[%v] %v, %v - %v", v.Request.Method, v.Request.Url, v.Request.Headers, util.SubString(string(reqBody), 0, 512))
-				log.Infof("status: %v, %v, %v", result.Status, err, util.SubString(string(respBody), 0, 512))
-			}
-
-			if !result.Valid {
-				stats.NumInvalid++
+				log.Infof("[%v] %v, %v - %v", item.Request.Method, item.Request.Url, item.Request.Headers, util.SubString(string(reqBody), 0, 512))
+				log.Infof("status: %v, error: %v, response: %v", result.Status, err, util.SubString(string(respBody), 0, 512))
 			}
 
 			if result.Error {
@@ -260,15 +230,12 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 			stats.MaxRequestTime = util.MaxDuration(result.Duration, stats.MaxRequestTime)
 			stats.MinRequestTime = util.MinDuration(result.Duration, stats.MinRequestTime)
 			stats.NumRequests++
-			v, ok := stats.StatusCode[result.Status]
-			if !ok {
-				v = 0
-			}
-			stats.StatusCode[result.Status] = v + 1
+			stats.StatusCode[result.Status]++
 
-			current++
-			if countLimit > 0 && current == countLimit {
-				goto END
+			if result.Invalid {
+				fmt.Printf("#%d request, %s %s, assertion failed, skiping subsequent requests", idx, item.Request.Method, item.Request.Url)
+				stats.NumInvalid++
+				break
 			}
 		}
 	}
@@ -374,20 +341,22 @@ func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Reques
 	}
 }
 
-func (cfg *LoadGenerator) Warmup(config AppConfig) {
+func (cfg *LoadGenerator) Warmup(config AppConfig) int {
 	log.Info("warmup started")
 	buffer := loadgenPool.Get()
 	defer loadgenPool.Put(buffer)
 	result := resultPool.Get().(*RequestResult)
 	defer resultPool.Put(result)
 	globalCtx := util.MapStr{}
+	reqCount := 0
 	for _, v := range config.Requests {
 
 		reqBody, respBody, err := doRequest(globalCtx, &v, buffer, result)
+		reqCount += 1
 
 		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url, util.SubString(string(reqBody), 0, 512))
-		log.Infof("status: %v,%v,%v", result.Status, err, util.SubString(string(respBody), 0, 512))
-		if result.Status >= 400 || result.Status == 0 {
+		log.Infof("status: %v, error: %v, response: %v", result.Status, err, util.SubString(string(respBody), 0, 512))
+		if result.Status >= 400 || result.Status == 0 || err != nil {
 			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")
 			reader := bufio.NewReader(os.Stdin)
 			reader.ReadString('\n')
@@ -395,6 +364,7 @@ func (cfg *LoadGenerator) Warmup(config AppConfig) {
 	}
 
 	log.Info("warmup finished")
+	return reqCount
 }
 
 func (cfg *LoadGenerator) Stop() {
