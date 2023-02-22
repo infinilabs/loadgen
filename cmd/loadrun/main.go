@@ -9,15 +9,15 @@ import (
 	"infini.sh/loadgen/cmd/loadrun/config"
 )
 
+const ()
+
 func main() {
-	terminalHeader := ("   __   ___  _      ___  ___   __    __\n")
-	terminalHeader += ("  / /  /___\\/_\\    /   \\/ _ \\ /__\\/\\ \\ \\\n")
-	terminalHeader += (" / /  //  ///_\\\\  / /\\ / /_\\//_\\ /  \\/ /\n")
-	terminalHeader += ("/ /__/ \\_//  _  \\/ /_// /_\\\\//__/ /\\  /\n")
-	terminalHeader += ("\\____|___/\\_/ \\_/___,'\\____/\\__/\\_\\ \\/\n\n")
-
-	terminalFooter := ("")
-
+	terminalHeader := `   __   ___  _      ___  __           __` + "\n"
+	terminalHeader += `  / /  /___\/_\    /   \/__\/\ /\  /\ \ \` + "\n"
+	terminalHeader += ` / /  //  ///_\\  / /\ / \// / \ \/  \/ /` + "\n"
+	terminalHeader += `/ /__/ \_//  _  \/ /_// _  \ \_/ / /\  /` + "\n"
+	terminalHeader += `\____|___/\_/ \_/___,'\/ \_/\___/\_\ \/` + "\n"
+	terminalFooter := ""
 	app := framework.NewApp("loadrun", "A testing suite runner",
 		util.TrimSpaces(config.Version), util.TrimSpaces(config.BuildNumber), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
 
