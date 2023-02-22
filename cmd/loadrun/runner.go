@@ -39,6 +39,8 @@ func startRunner(appConfig *AppConfig) bool {
 	defer log.Flush()
 	msgs := make([]*TestMsg, len(appConfig.Tests))
 	for i, test := range appConfig.Tests {
+		// Wait for the last process to get fully killed if not existed cleanly
+		time.Sleep(time.Second)
 		result, err := runTest(appConfig, test)
 		msg := &TestMsg{
 			Path: test.Path,
@@ -165,7 +167,9 @@ func runGateway(ctx context.Context, gatewayPath, gatewayConfigPath, gatewayHost
 			break
 		}
 		log.Debugf("Checking whether %s or %s is ready...", gatewayHost, gatewayApiHost)
-		if testPort(gatewayHost) || testPort(gatewayApiHost) {
+		entryReady, apiReady := testPort(gatewayHost), testPort(gatewayApiHost)
+		if entryReady || apiReady {
+			log.Debugf("gateway is started, entry: %+v, api: %+v", entryReady, apiReady)
 			gatewayReady = true
 			break
 		}
