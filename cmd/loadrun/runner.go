@@ -41,9 +41,7 @@ func startRunner(appConfig *AppConfig) bool {
 	for i, test := range appConfig.Tests {
 		result, err := runTest(appConfig, test)
 		msg := &TestMsg{
-			Path:   test.Path,
-			Result: result.LoadgenOutput,
-			Time:   result.Time,
+			Path: test.Path,
 		}
 		if result == nil || err != nil {
 			log.Debugf("failed to run test, error: %+v", err)
@@ -55,6 +53,8 @@ func startRunner(appConfig *AppConfig) bool {
 		}
 		if result != nil {
 			msg.DurationInMs = result.DurationInMs
+			msg.Result = result.LoadgenOutput
+			msg.Time = result.Time
 		}
 		msgs[i] = msg
 	}
