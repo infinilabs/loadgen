@@ -60,5 +60,5 @@ requests:
       basic_auth:
         username: $[[env.ES_USERNAME]]
         password: $[[env.ES_PASSWORD]]
-      url: $[[env.ES_ENDPOINT]/medcl/_search
+      url: $[[env.ES_ENDPOINT]]/medcl/_search
       body: '{ "track_total_hits": true, "size": 0, "query": { "terms": { "patent_id": [ $[[id_list]] ] } } } '
