@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"math/rand"
-	"strings"
 	"time"
 
 	"github.com/RoaringBitmap/roaring"
@@ -122,19 +121,12 @@ func (config *AppConfig) Init() {
 		if len(i.Path) > 0 {
 			lines = util.FileGetLines(i.Path)
 			log.Debugf("path:%v, num of lines:%v", i.Path, len(lines))
-			for i, v := range lines {
-				v = strings.ReplaceAll(v, "\\", "\\\\")
-				v = strings.ReplaceAll(v, "\"", "\\\"")
-				lines[i] = v
-			}
 		}
 
 		if len(i.Data) > 0 {
 			for _, v := range i.Data {
 				v = util.TrimSpaces(v)
 				if len(v) > 0 {
-					v = strings.ReplaceAll(v, "\\", "\\\\")
-					v = strings.ReplaceAll(v, "\"", "\\\"")
 					lines = append(lines, v)
 				}
 			}
