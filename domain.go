@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/RoaringBitmap/roaring"
@@ -80,6 +81,8 @@ type Variable struct {
 	From uint64 `config:"from"`
 	To   uint64 `config:"to"`
 
+	Replace map[string]string `config:"replace"`
+
 	Size int `config:"size"`
 
 	//type: random_int_array
@@ -87,6 +90,8 @@ type Variable struct {
 	RandomArrayType         string `config:"variable_type"`
 	RandomSquareBracketChar bool   `config:"square_bracket"`
 	RandomStringBracketChar string `config:"string_bracket"`
+
+	replacer *strings.Replacer
 }
 
 type AppConfig struct {
@@ -116,7 +121,7 @@ var variables = map[string]Variable{}
 
 func (config *AppConfig) Init() {
 	for _, i := range config.Variable {
-		name := util.TrimSpaces(i.Name)
+		i.Name = util.TrimSpaces(i.Name)
 		var lines []string
 		if len(i.Path) > 0 {
 			lines = util.FileGetLines(i.Path)
@@ -132,9 +137,18 @@ func (config *AppConfig) Init() {
 			}
 		}
 
-		dict[name] = lines
+		if len(i.Replace) > 0 {
+			var replaces []string
 
-		variables[name] = i
+			for k, v := range i.Replace {
+				replaces = append(replaces, k, v)
+			}
+			i.replacer = strings.NewReplacer(replaces...)
+		}
+
+		dict[i.Name] = lines
+
+		variables[i.Name] = i
 	}
 
 	var err error
@@ -187,98 +201,111 @@ func GetVariable(runtimeKV util.MapStr, key string) string {
 		}
 	}
 
+	return getVariable(key)
+}
+
+func getVariable(key string) string {
 	x, ok := variables[key]
-	if ok {
-		switch x.Type {
-		case "sequence":
-			return util.ToString(util.GetAutoIncrement32ID(x.Name, uint32(x.From), uint32(x.To)).Increment())
-		case "sequence64":
-			return util.ToString(util.GetAutoIncrement64ID(x.Name, x.From, x.To).Increment64())
-		case "uuid":
-			return util.GetUUID()
-		case "now_local":
-			return time.Now().Local().String()
-		case "now_with_format":
-			if x.Format == "" {
-				panic(errors.Errorf("date format is not set, [%v]", x))
+	if !ok {
+		return "not_found"
+	}
+
+	rawValue := buildVariableValue(x)
+	if x.replacer == nil {
+		return rawValue
+	}
+	return x.replacer.Replace(rawValue)
+}
+
+func buildVariableValue(x Variable) string {
+	switch x.Type {
+	case "sequence":
+		return util.ToString(util.GetAutoIncrement32ID(x.Name, uint32(x.From), uint32(x.To)).Increment())
+	case "sequence64":
+		return util.ToString(util.GetAutoIncrement64ID(x.Name, x.From, x.To).Increment64())
+	case "uuid":
+		return util.GetUUID()
+	case "now_local":
+		return time.Now().Local().String()
+	case "now_with_format":
+		if x.Format == "" {
+			panic(errors.Errorf("date format is not set, [%v]", x))
+		}
+		return time.Now().Format(x.Format)
+	case "now_utc":
+		return time.Now().UTC().String()
+	case "now_utc_lite":
+		return time.Now().UTC().Format(TsLayout)
+	case "now_unix":
+		return util.IntToString(int(time.Now().Local().Unix()))
+	case "int_array_bitmap":
+		rb3 := roaring.New()
+		if x.Size > 0 {
+			for y := 0; y < x.Size; y++ {
+				v := rand.Intn(int(x.To-x.From+1)) + int(x.From)
+				rb3.Add(uint32(v))
 			}
-			return time.Now().Format(x.Format)
-		case "now_utc":
-			return time.Now().UTC().String()
-		case "now_utc_lite":
-			return time.Now().UTC().Format(TsLayout)
-		case "now_unix":
-			return util.IntToString(int(time.Now().Local().Unix()))
-		case "int_array_bitmap":
-			rb3 := roaring.New()
+		}
+		buf := new(bytes.Buffer)
+		rb3.WriteTo(buf)
+		return base64.StdEncoding.EncodeToString(buf.Bytes())
+	case "range":
+		return util.IntToString(rand.Intn(int(x.To-x.From+1)) + int(x.From))
+	case "random_array":
+		str := bytes.Buffer{}
+
+		if x.RandomSquareBracketChar {
+			str.WriteString("[")
+		}
+
+		if x.RandomArrayKey != "" {
 			if x.Size > 0 {
 				for y := 0; y < x.Size; y++ {
-					v := rand.Intn(int(x.To-x.From+1)) + int(x.From)
-					rb3.Add(uint32(v))
-				}
-			}
-			buf := new(bytes.Buffer)
-			rb3.WriteTo(buf)
-			return base64.StdEncoding.EncodeToString(buf.Bytes())
-		case "range":
-			return util.IntToString(rand.Intn(int(x.To-x.From+1)) + int(x.From))
-		case "random_array":
-			str := bytes.Buffer{}
+					if x.RandomSquareBracketChar && str.Len() > 1 || (!x.RandomSquareBracketChar && str.Len() > 0) {
+						str.WriteString(",")
+					}
 
-			if x.RandomSquareBracketChar {
-				str.WriteString("[")
-			}
+					v := getVariable(x.RandomArrayKey)
 
-			if x.RandomArrayKey != "" {
-				if x.Size > 0 {
-					for y := 0; y < x.Size; y++ {
-						if x.RandomSquareBracketChar && str.Len() > 1 || (!x.RandomSquareBracketChar && str.Len() > 0) {
-							str.WriteString(",")
+					//left "
+					if x.RandomArrayType == "string" {
+						if x.RandomStringBracketChar != "" {
+							str.WriteString(x.RandomStringBracketChar)
+						} else {
+							str.WriteString("\"")
 						}
+					}
 
-						v := GetVariable(runtimeKV, x.RandomArrayKey)
+					str.WriteString(v)
 
-						//left "
-						if x.RandomArrayType == "string" {
-							if x.RandomStringBracketChar != "" {
-								str.WriteString(x.RandomStringBracketChar)
-							} else {
-								str.WriteString("\"")
-							}
-						}
-
-						str.WriteString(v)
-
-						// right "
-						if x.RandomArrayType == "string" {
-							if x.RandomStringBracketChar != "" {
-								str.WriteString(x.RandomStringBracketChar)
-							} else {
-								str.WriteString("\"")
-							}
+					// right "
+					if x.RandomArrayType == "string" {
+						if x.RandomStringBracketChar != "" {
+							str.WriteString(x.RandomStringBracketChar)
+						} else {
+							str.WriteString("\"")
 						}
 					}
 				}
 			}
+		}
 
-			if x.RandomSquareBracketChar {
-				str.WriteString("]")
-			}
-			return str.String()
-		case "file", "list":
-			d, ok := dict[key]
-			if ok {
+		if x.RandomSquareBracketChar {
+			str.WriteString("]")
+		}
+		return str.String()
+	case "file", "list":
+		d, ok := dict[x.Name]
+		if ok {
 
-				if len(d) == 1 {
-					return d[0]
-				}
-				offset := rand.Intn(len(d))
-				return d[offset]
+			if len(d) == 1 {
+				return d[0]
 			}
+			offset := rand.Intn(len(d))
+			return d[offset]
 		}
 	}
-
-	return "not_found"
+	return "invalid_variable_type"
 }
 
 type RequestItem struct {

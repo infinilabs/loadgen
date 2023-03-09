@@ -12,6 +12,9 @@ variables:
   - name: ip
     type: file
     path: dict/ip.txt
+    replace: # replace special characters in the value
+      '"': '\"'
+      '\': '\\'
   - name: id
     type: sequence
   - name: id
@@ -46,10 +49,21 @@ variables:
       - 'xyz'
   - name: id_list
     type: random_array
-    variable_type: number #number/string
-    variable_key: suffix #variable key to get array items
+    variable_type: number # number/string
+    variable_key: suffix # variable key to get array items
     square_bracket: false
-    size: 10 #how many items for array
+    size: 10 # how many items for array
+  - name: str_list
+    type: random_array
+    variable_type: string # number/string
+    variable_key: suffix #variable key to get array items
+    square_bracket: true
+    size: 10 # how many items for array
+    replace:
+      '"': "'" # use ' instead of " for string quotes
+      # use {} instead of [] as array brackets
+      '[': '{'
+      ']': '}'
 requests:
   - request:
       method: POST
