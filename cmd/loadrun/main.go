@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	"infini.sh/framework"
 	"infini.sh/framework/core/env"
@@ -30,6 +31,13 @@ func main() {
 		ok, err := env.ParseConfig("env", &environments)
 		if ok && err != nil {
 			panic(err)
+		}
+		environs := os.Environ()
+		for _, env := range environs {
+			kv := strings.Split(env, "=")
+			if len(kv) == 2 {
+				environments[kv[0]] = kv[1]
+			}
 		}
 
 		tests := []Test{}
