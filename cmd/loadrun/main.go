@@ -36,7 +36,10 @@ func main() {
 		for _, env := range environs {
 			kv := strings.Split(env, "=")
 			if len(kv) == 2 {
-				environments[kv[0]] = kv[1]
+				k, v := kv[0], kv[1]
+				if _, ok := environments[k]; ok {
+					environments[k] = v
+				}
 			}
 		}
 
