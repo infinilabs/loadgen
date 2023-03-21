@@ -129,7 +129,8 @@ func doRequest(globalCtx util.MapStr, item *RequestItem, buffer *bytebufferpool.
 		}
 		condition, buildErr := conditions.NewCondition(item.Assert)
 		if buildErr != nil {
-			log.Error("failed to build conditions whilte assert existed, error: %+v", err)
+			log.Errorf("failed to build conditions whilte assert existed, error: %+v", buildErr)
+			result.Invalid = true
 			return
 		}
 		if !condition.Check(event) {
