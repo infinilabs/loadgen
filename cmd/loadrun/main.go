@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"strings"
 
@@ -10,7 +11,13 @@ import (
 	"infini.sh/loadgen/cmd/loadrun/config"
 )
 
-const ()
+var loadgenLogLevel string
+var gatewayLogLevel string
+
+func init() {
+	flag.StringVar(&loadgenLogLevel, "loadgen-log", "off", "Log level of Loadgen")
+	flag.StringVar(&gatewayLogLevel, "gateway-log", "debug", "Log level of Gateway")
+}
 
 func main() {
 	terminalHeader := `   __   ___  _      ___  __           __` + "\n"

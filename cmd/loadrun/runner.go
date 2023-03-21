@@ -13,6 +13,7 @@ import (
 	"time"
 
 	log "github.com/cihub/seelog"
+	"infini.sh/framework/core/util"
 )
 
 type TestResult struct {
@@ -66,7 +67,7 @@ func startRunner(appConfig *AppConfig) bool {
 		if msg.Status != "SUCCESS" {
 			ok = false
 		}
-		fmt.Println(string(msg.Result))
+		fmt.Println(util.UnsafeBytesToString(msg.Result))
 	}
 	return ok
 }
@@ -89,7 +90,7 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	log.Debugf("Executing gateway/loadgen with environment [%+v]", env)
 
 	loadgenPath := appConfig.Environments[env_LR_LOADGEN_CMD]
-	loadgenCmdArgs := []string{"-config", loadgenConfigPath, "-log", "off"}
+	loadgenCmdArgs := []string{"-config", loadgenConfigPath, "-log", loadgenLogLevel}
 
 	if appConfig.Environments[env_LR_GATEWAY_CMD] != "" {
 		gatewayConfigPath := path.Join(testPath, "gateway.yml")
@@ -137,25 +138,26 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 }
 
 func runGateway(ctx context.Context, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost string, env []string) (*exec.Cmd, chan int, error) {
-	gatewayCmdArgs := []string{"-config", gatewayConfigPath}
+	gatewayCmdArgs := []string{"-config", gatewayConfigPath, "-log", gatewayLogLevel}
 	log.Debugf("Executing gateway with args [%+v]", gatewayCmdArgs)
+	gatewayOutput := &bytes.Buffer{}
 	gatewayCmd := exec.CommandContext(ctx, gatewayPath, gatewayCmdArgs...)
 	gatewayCmd.Env = env
+	gatewayCmd.Stdout = gatewayOutput
+	gatewayCmd.Stderr = gatewayOutput
 
 	gatewayFailed := int32(0)
 	gatewayExited := make(chan int)
 
 	go func() {
-		output, err := gatewayCmd.Output()
+		err := gatewayCmd.Run()
 		if err != nil {
-			log.Debugf("gateway server exited: %+v, output: %s", err, string(output))
-			log.Debugf("============================== Gateway Exit Info [Start] =============================")
-			if osExit, ok := err.(*exec.ExitError); ok {
-				log.Debugf(string(osExit.Stderr))
-			}
-			log.Debugf("============================== Gateway Exit Info [End] =============================")
+			log.Debugf("gateway server exited with non-zero code: %+v", err)
 			atomic.StoreInt32(&gatewayFailed, 1)
 		}
+		log.Debug("============================== Gateway Exit Info [Start] =============================")
+		log.Debug(util.UnsafeBytesToString(gatewayOutput.Bytes()))
+		log.Debug("============================== Gateway Exit Info [End] =============================")
 		gatewayExited <- 1
 	}()
 
