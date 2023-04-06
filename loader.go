@@ -320,7 +320,7 @@ func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Reques
 
 				v.Request.bodyTemplate.ExecuteFuncStringExtend(bodyWriter, func(w io.Writer, tag string) (int, error) {
 					variable := GetVariable(runtimeVariables, tag)
-					return w.Write(util.UnsafeStringToBytes(variable))
+					return w.Write([]byte(variable))
 				})
 			} else {
 				bodyWriter.Write(util.UnsafeStringToBytes(body))
