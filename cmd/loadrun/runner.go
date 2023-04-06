@@ -92,6 +92,9 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 
 	loadgenPath := appConfig.Environments[env_LR_LOADGEN_CMD]
 	loadgenCmdArgs := []string{"-config", loadgenConfigPath, "-log", loadgenLogLevel}
+	if test.Compress {
+		loadgenCmdArgs = append(loadgenCmdArgs, "--compress")
+	}
 
 	if appConfig.Environments[env_LR_GATEWAY_CMD] != "" {
 		gatewayConfigPath := path.Join(testPath, "gateway.yml")
