@@ -17,7 +17,7 @@ variables:
       '\': '\\'
   - name: id
     type: sequence
-  - name: id
+  - name: id64
     type: sequence64
   - name: uuid
     type: uuid

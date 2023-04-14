@@ -224,7 +224,10 @@ func main() {
 		loaderConfig.Requests = items
 		loaderConfig.Variable = variables
 		loaderConfig.RunnerConfig = runnerConfig
-		loaderConfig.Init()
+		err = loaderConfig.Init()
+		if err != nil {
+			panic(err)
+		}
 
 	}, func() {
 
