@@ -5,7 +5,12 @@ env:
 runner:
   # total_rounds: 1
   no_warm: false
+  # Whether to log all requests
   log_requests: false
+  # Whether to log all requests with the specified response status
+  log_status_codes:
+    - 0
+    - 500
   assert_invalid: false
   assert_error: false
 variables:

@@ -113,6 +113,8 @@ type RunnerConfig struct {
 	AssertError bool `config:"assert_error"`
 	// Print the request sent to server
 	LogRequests bool `config:"log_requests"`
+	// Print the request sent to server if status code matched
+	LogStatusCodes []int `config:"log_status_codes"`
 	// Disable fasthttp client's header names normalizing, preserve original header key, for responses
 	DisableHeaderNamesNormalizing bool `config:"disable_header_names_normalizing"`
 }

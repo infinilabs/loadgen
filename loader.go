@@ -202,7 +202,7 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 
 			reqBody, respBody, err := doRequest(globalCtx, &item, result)
 
-			if config.RunnerConfig.LogRequests {
+			if config.RunnerConfig.LogRequests || util.ContainsInAnyInt32Array(result.Status, config.RunnerConfig.LogStatusCodes) {
 				log.Infof("[%v] %v, %v - %v", item.Request.Method, item.Request.Url, item.Request.Headers, util.SubString(string(reqBody), 0, 512))
 				log.Infof("status: %v, error: %v, response: %v", result.Status, err, util.SubString(string(respBody), 0, 512))
 			}
