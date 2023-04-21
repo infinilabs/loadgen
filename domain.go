@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -112,6 +113,8 @@ type RunnerConfig struct {
 	AssertError bool `config:"assert_error"`
 	// Print the request sent to server
 	LogRequests bool `config:"log_requests"`
+	// Print the request sent to server if status code matched
+	LogStatusCodes []int `config:"log_status_codes"`
 	// Disable fasthttp client's header names normalizing, preserve original header key, for responses
 	DisableHeaderNamesNormalizing bool `config:"disable_header_names_normalizing"`
 }
@@ -119,9 +122,13 @@ type RunnerConfig struct {
 var dict = map[string][]string{}
 var variables = map[string]Variable{}
 
-func (config *AppConfig) Init() {
+func (config *AppConfig) Init() error {
 	for _, i := range config.Variable {
 		i.Name = util.TrimSpaces(i.Name)
+		_, ok := variables[i.Name]
+		if ok {
+			return fmt.Errorf("variable [%s] defined twice", i.Name)
+		}
 		var lines []string
 		if len(i.Path) > 0 {
 			lines = util.FileGetLines(i.Path)
@@ -159,7 +166,7 @@ func (config *AppConfig) Init() {
 			v.Request.urlHasTemplate = true
 			v.Request.urlTemplate, err = fasttemplate.NewTemplate(v.Request.Url, "$[[", "]]")
 			if err != nil {
-				panic(err)
+				return err
 			}
 		}
 
@@ -171,7 +178,7 @@ func (config *AppConfig) Init() {
 			v.Request.bodyHasTemplate = true
 			v.Request.bodyTemplate, err = fasttemplate.NewTemplate(v.Request.Body, "$[[", "]]")
 			if err != nil {
-				panic(err)
+				return err
 			}
 		}
 
@@ -180,13 +187,14 @@ func (config *AppConfig) Init() {
 				if util.ContainStr(headerV, "$") {
 					v.Request.headerTemplates[headerK], err = fasttemplate.NewTemplate(headerV, "$[[", "]]")
 					if err != nil {
-						panic(err)
+						return err
 					}
 				}
 			}
 		}
 	}
 
+	return nil
 }
 
 // "2021-08-23T11:13:36.274"

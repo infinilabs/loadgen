@@ -2,12 +2,12 @@ package main
 
 import (
 	"bufio"
+	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -19,7 +19,6 @@ import (
 	"infini.sh/framework/core/rate"
 	"infini.sh/framework/core/stats"
 	"infini.sh/framework/core/util"
-	"infini.sh/framework/lib/bytebufferpool"
 	"infini.sh/framework/lib/fasthttp"
 )
 
@@ -42,11 +41,20 @@ type LoadStats struct {
 	StatusCode     map[int]int
 }
 
-func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadStats, disableHeaderNamesNormalizing bool) (rt *LoadGenerator) {
+var (
+	httpClient fasthttp.Client
+	resultPool = &sync.Pool{
+		New: func() interface{} {
+			return &RequestResult{}
+		},
+	}
+)
+
+func NewLoadGenerator(duration int, timeout int, goroutines int, statsAggregator chan *LoadStats, disableHeaderNamesNormalizing bool) (rt *LoadGenerator) {
 
 	httpClient = fasthttp.Client{
-		ReadTimeout:                   time.Second * 60,
-		WriteTimeout:                  time.Second * 60,
+		ReadTimeout:                   time.Second * time.Duration(timeout),
+		WriteTimeout:                  time.Second * time.Duration(timeout),
 		MaxConnsPerHost:               goroutines,
 		NoDefaultUserAgentHeader:      false,
 		DisableHeaderNamesNormalizing: disableHeaderNamesNormalizing,
@@ -58,24 +66,15 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 	return
 }
 
-var httpClient fasthttp.Client
-
-var resultPool = &sync.Pool{
-	New: func() interface{} {
-		return &RequestResult{}
-	},
-}
-
-func doRequest(globalCtx util.MapStr, item *RequestItem, buffer *bytebufferpool.ByteBuffer, result *RequestResult) (reqBody, respBody []byte, err error) {
+func doRequest(globalCtx util.MapStr, item *RequestItem, result *RequestResult) (reqBody, respBody []byte, err error) {
 	result.Reset()
-	buffer.Reset()
 
 	req := fasthttp.AcquireRequest()
 	req.Reset()
 	req.ResetBody()
 	defer fasthttp.ReleaseRequest(req)
 	//replace url variable
-	item.prepareRequest(globalCtx, req, buffer)
+	item.prepareRequest(globalCtx, req)
 	resp := fasthttp.AcquireResponse()
 	resp.Reset()
 	resp.ResetBody()
@@ -165,16 +164,11 @@ func buildCtx(resp *fasthttp.Response, respBody []byte, result *RequestResult) u
 	return event
 }
 
-var regex = regexp.MustCompile("(\\$\\[\\[(\\w+?)\\]\\])")
-var loadgenPool = bytebufferpool.NewTaggedPool("loadgen", 0, 100*1024*1024, 10000)
-
 func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 	start := time.Now()
 
 	limiter := rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Second*1)
-	buffer := loadgenPool.Get()
-	defer loadgenPool.Put(buffer)
 	result := resultPool.Get().(*RequestResult)
 	defer resultPool.Put(result)
 
@@ -190,7 +184,6 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 		}
 		totalRounds += 1
 
-		buffer.Reset()
 		result.Reset()
 
 		for idx, item := range config.Requests {
@@ -207,9 +200,9 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 				}
 			}
 
-			reqBody, respBody, err := doRequest(globalCtx, &item, buffer, result)
+			reqBody, respBody, err := doRequest(globalCtx, &item, result)
 
-			if config.RunnerConfig.LogRequests {
+			if config.RunnerConfig.LogRequests || util.ContainsInAnyInt32Array(result.Status, config.RunnerConfig.LogStatusCodes) {
 				log.Infof("[%v] %v, %v - %v", item.Request.Method, item.Request.Url, item.Request.Headers, util.SubString(string(reqBody), 0, 512))
 				log.Infof("status: %v, error: %v, response: %v", result.Status, err, util.SubString(string(respBody), 0, 512))
 			}
@@ -245,9 +238,21 @@ END:
 	cfg.statsAggregator <- stats
 }
 
-func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Request, bodyBuffer *bytebufferpool.ByteBuffer) {
+func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Request) {
+	bodyBuffer := req.BodyBuffer()
+	var bodyWriter io.Writer = bodyBuffer
 	if v.Request.DisableHeaderNamesNormalizing {
 		req.Header.DisableNormalizing()
+	}
+
+	if compress {
+		var err error
+		gzipWriter, err := gzip.NewWriterLevel(bodyBuffer, fasthttp.CompressBestCompression)
+		if err != nil {
+			panic("failed to create gzip writer")
+		}
+		defer gzipWriter.Close()
+		bodyWriter = gzipWriter
 	}
 
 	//init runtime variables
@@ -313,46 +318,34 @@ func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Reques
 					}
 				}
 
-				v.Request.bodyTemplate.ExecuteFuncStringExtend(bodyBuffer, func(w io.Writer, tag string) (int, error) {
+				v.Request.bodyTemplate.ExecuteFuncStringExtend(bodyWriter, func(w io.Writer, tag string) (int, error) {
 					variable := GetVariable(runtimeVariables, tag)
-					return w.Write(util.UnsafeStringToBytes(variable))
+					return w.Write([]byte(variable))
 				})
 			} else {
-				bodyBuffer.WriteString(body)
+				bodyWriter.Write(util.UnsafeStringToBytes(body))
 			}
 		}
 	}
 
 	req.Header.Set("X-PayLoad-Size", util.ToString(bodyBuffer.Len()))
 
-	if bodyBuffer.Len() > 0 {
-		if compress {
-			_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), bodyBuffer.B, fasthttp.CompressBestCompression)
-			if err != nil {
-				panic(err)
-			}
-
-			req.Header.Set(fasthttp.HeaderAcceptEncoding, "gzip")
-			req.Header.Set(fasthttp.HeaderContentEncoding, "gzip")
-			req.Header.Set("X-PayLoad-Compressed", util.ToString(true))
-
-		} else {
-			req.SetRawBody(bodyBuffer.B)
-		}
+	if bodyBuffer.Len() > 0 && compress {
+		req.Header.Set(fasthttp.HeaderAcceptEncoding, "gzip")
+		req.Header.Set(fasthttp.HeaderContentEncoding, "gzip")
+		req.Header.Set("X-PayLoad-Compressed", util.ToString(true))
 	}
 }
 
 func (cfg *LoadGenerator) Warmup(config AppConfig) int {
 	log.Info("warmup started")
-	buffer := loadgenPool.Get()
-	defer loadgenPool.Put(buffer)
 	result := resultPool.Get().(*RequestResult)
 	defer resultPool.Put(result)
 	globalCtx := util.MapStr{}
 	reqCount := 0
 	for _, v := range config.Requests {
 
-		reqBody, respBody, err := doRequest(globalCtx, &v, buffer, result)
+		reqBody, respBody, err := doRequest(globalCtx, &v, result)
 		reqCount += 1
 
 		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url, util.SubString(string(reqBody), 0, 512))

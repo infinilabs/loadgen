@@ -77,4 +77,6 @@ A test case is a standalone directory containing the following configs:
 type Test struct {
 	// The directory of the test configurations
 	Path string `config:"path"`
+	// Whether to use --compress for loadgen
+	Compress bool `config:"compress"`
 }

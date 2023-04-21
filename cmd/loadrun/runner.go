@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -63,11 +62,13 @@ func startRunner(appConfig *AppConfig) bool {
 	}
 	ok := true
 	for _, msg := range msgs {
-		fmt.Printf("[%s][TEST][%s] [%s] duration: %d(ms)\n", msg.Time.Format("2006-01-02 15:04:05"), msg.Status, msg.Path, msg.DurationInMs)
+		log.Infof("[%s][TEST][%s] [%s] duration: %d(ms)\n", msg.Time.Format("2006-01-02 15:04:05"), msg.Status, msg.Path, msg.DurationInMs)
 		if msg.Status != "SUCCESS" {
 			ok = false
 		}
-		fmt.Println(util.UnsafeBytesToString(msg.Result))
+		log.Debug("============================== Loadgen Exit Info [Start] =============================")
+		log.Info(util.UnsafeBytesToString(msg.Result))
+		log.Debug("============================== Loadgen Exit Info [End] =============================")
 	}
 	return ok
 }
@@ -91,13 +92,17 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 
 	loadgenPath := appConfig.Environments[env_LR_LOADGEN_CMD]
 	loadgenCmdArgs := []string{"-config", loadgenConfigPath, "-log", loadgenLogLevel}
+	if test.Compress {
+		loadgenCmdArgs = append(loadgenCmdArgs, "--compress")
+	}
 
 	if appConfig.Environments[env_LR_GATEWAY_CMD] != "" {
 		gatewayConfigPath := path.Join(testPath, "gateway.yml")
 		if _, err := os.Stat(gatewayConfigPath); err == nil {
+			gatewayOutput := &bytes.Buffer{}
 			// Start gateway server
 			gatewayPath, gatewayHost, gatewayApiHost := appConfig.Environments[env_LR_GATEWAY_CMD], appConfig.Environments[env_LR_GATEWAY_HOST], appConfig.Environments[env_LR_GATEWAY_API_HOST]
-			gatewayCmd, gatewayExited, err := runGateway(ctx, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost, env)
+			gatewayCmd, gatewayExited, err := runGateway(ctx, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost, env, gatewayOutput)
 			if err != nil {
 				return nil, err
 			}
@@ -110,6 +115,9 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 				case <-gatewayExited:
 				case <-timeout.C:
 				}
+				log.Debug("============================== Gateway Exit Info [Start] =============================")
+				log.Debug(util.UnsafeBytesToString(gatewayOutput.Bytes()))
+				log.Debug("============================== Gateway Exit Info [End] =============================")
 			}()
 		}
 	}
@@ -137,10 +145,9 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	return testResult, nil
 }
 
-func runGateway(ctx context.Context, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost string, env []string) (*exec.Cmd, chan int, error) {
+func runGateway(ctx context.Context, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost string, env []string, gatewayOutput *bytes.Buffer) (*exec.Cmd, chan int, error) {
 	gatewayCmdArgs := []string{"-config", gatewayConfigPath, "-log", gatewayLogLevel}
 	log.Debugf("Executing gateway with args [%+v]", gatewayCmdArgs)
-	gatewayOutput := &bytes.Buffer{}
 	gatewayCmd := exec.CommandContext(ctx, gatewayPath, gatewayCmdArgs...)
 	gatewayCmd.Env = env
 	gatewayCmd.Stdout = gatewayOutput
@@ -155,9 +162,6 @@ func runGateway(ctx context.Context, gatewayPath, gatewayConfigPath, gatewayHost
 			log.Debugf("gateway server exited with non-zero code: %+v", err)
 			atomic.StoreInt32(&gatewayFailed, 1)
 		}
-		log.Debug("============================== Gateway Exit Info [Start] =============================")
-		log.Debug(util.UnsafeBytesToString(gatewayOutput.Bytes()))
-		log.Debug("============================== Gateway Exit Info [End] =============================")
 		gatewayExited <- 1
 	}()
 

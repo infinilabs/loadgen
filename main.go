@@ -20,6 +20,7 @@ var duration int = 10
 var goroutines int = 2
 var rateLimit int = -1
 var reqLimit int = -1
+var reqTimeout int = 60
 var compress bool = false
 var statsAggregator chan *LoadStats
 
@@ -28,6 +29,7 @@ func init() {
 	flag.IntVar(&duration, "d", 5, "Duration of tests in seconds")
 	flag.IntVar(&rateLimit, "r", -1, "Max requests per second (fixed QPS)")
 	flag.IntVar(&reqLimit, "l", -1, "Limit total requests")
+	flag.IntVar(&reqTimeout, "timeout", 60, "Request timeout in seconds, default 60s")
 	flag.BoolVar(&compress, "compress", false, "Compress requests with gzip")
 }
 
@@ -41,7 +43,7 @@ func startLoader(cfg AppConfig) *LoadStats {
 
 	flag.Parse()
 
-	loadGen := NewLoadGenerator(duration, goroutines, statsAggregator, cfg.RunnerConfig.DisableHeaderNamesNormalizing)
+	loadGen := NewLoadGenerator(duration, reqTimeout, goroutines, statsAggregator, cfg.RunnerConfig.DisableHeaderNamesNormalizing)
 
 	leftDoc := reqLimit
 
@@ -222,7 +224,10 @@ func main() {
 		loaderConfig.Requests = items
 		loaderConfig.Variable = variables
 		loaderConfig.RunnerConfig = runnerConfig
-		loaderConfig.Init()
+		err = loaderConfig.Init()
+		if err != nil {
+			panic(err)
+		}
 
 	}, func() {
 
