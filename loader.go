@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strconv"
 	"sync"
@@ -50,16 +51,28 @@ var (
 	}
 )
 
-func NewLoadGenerator(duration int, timeout int, goroutines int, statsAggregator chan *LoadStats, disableHeaderNamesNormalizing bool) (rt *LoadGenerator) {
+func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadStats, disableHeaderNamesNormalizing bool) (rt *LoadGenerator) {
+	if readTimeout <= 0 {
+		readTimeout = timeout
+	}
+	if writeTimeout <= 0 {
+		writeTimeout = timeout
+	}
+	if dialTimeout <= 0 {
+		dialTimeout = timeout
+	}
 
 	httpClient = fasthttp.Client{
-		ReadTimeout:                   time.Second * time.Duration(timeout),
-		WriteTimeout:                  time.Second * time.Duration(timeout),
+		ReadTimeout:                   time.Second * time.Duration(readTimeout),
+		WriteTimeout:                  time.Second * time.Duration(writeTimeout),
 		MaxConnsPerHost:               goroutines,
 		NoDefaultUserAgentHeader:      false,
 		DisableHeaderNamesNormalizing: disableHeaderNamesNormalizing,
-		Name:                          global.Env().GetAppLowercaseName() + "/" + global.Env().GetVersion() + "/" + global.Env().GetBuildNumber(),
-		TLSConfig:                     &tls.Config{InsecureSkipVerify: true},
+		Dial: func(addr string) (net.Conn, error) {
+			return fasthttp.DialTimeout(addr, time.Duration(dialTimeout)*time.Second)
+		},
+		Name:      global.Env().GetAppLowercaseName() + "/" + global.Env().GetVersion() + "/" + global.Env().GetBuildNumber(),
+		TLSConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
 	rt = &LoadGenerator{duration, goroutines, statsAggregator, 0}
