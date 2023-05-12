@@ -38,11 +38,17 @@ const (
 
 func startRunner(appConfig *AppConfig) bool {
 	defer log.Flush()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Infof("failed to get working directory, err: %v", err)
+		return false
+	}
 	msgs := make([]*TestMsg, len(appConfig.Tests))
 	for i, test := range appConfig.Tests {
 		// Wait for the last process to get fully killed if not existed cleanly
 		time.Sleep(time.Second)
-		result, err := runTest(appConfig, test)
+		result, err := runTest(appConfig, cwd, test)
 		msg := &TestMsg{
 			Path: test.Path,
 		}
@@ -74,10 +80,14 @@ func startRunner(appConfig *AppConfig) bool {
 	return ok
 }
 
-func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
+func runTest(appConfig *AppConfig, cwd string, test Test) (*TestResult, error) {
 	// To kill loadgen/gateway/other command automatically
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	if err := os.Chdir(cwd); err != nil {
+		return nil, err
+	}
 
 	testPath := path.Join(appConfig.Environments[env_LR_TEST_DIR], test.Path)
 	loadgenPath, err := filepath.Abs(appConfig.Environments[env_LR_LOADGEN_CMD])
