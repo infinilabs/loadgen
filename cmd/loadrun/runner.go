@@ -84,6 +84,10 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	var gatewayPath string
+	if appConfig.Environments[env_LR_GATEWAY_CMD] != "" {
+		gatewayPath, _ = filepath.Abs(appConfig.Environments[env_LR_GATEWAY_CMD])
+	}
 
 	loadgenConfigPath := path.Join(testPath, "loadgen.yml")
 
@@ -100,34 +104,31 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 		loadgenCmdArgs = append(loadgenCmdArgs, "--compress")
 	}
 
-	if appConfig.Environments[env_LR_GATEWAY_CMD] != "" {
-		gatewayConfigPath := path.Join(testPath, "gateway.yml")
-		if _, err := os.Stat(gatewayConfigPath); err == nil {
-			gatewayOutput := &bytes.Buffer{}
-			// Start gateway server
-			gatewayPath, err := filepath.Abs(appConfig.Environments[env_LR_GATEWAY_CMD])
-			if err != nil {
-				return nil, err
-			}
-			gatewayHost, gatewayApiHost := appConfig.Environments[env_LR_GATEWAY_HOST], appConfig.Environments[env_LR_GATEWAY_API_HOST]
-			gatewayCmd, gatewayExited, err := runGateway(ctx, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost, env, gatewayOutput)
-			if err != nil {
-				return nil, err
-			}
-
-			defer func() {
-				log.Debug("waiting for 5s to stop the gateway")
-				gatewayCmd.Process.Signal(os.Interrupt)
-				timeout := time.NewTimer(5 * time.Second)
-				select {
-				case <-gatewayExited:
-				case <-timeout.C:
-				}
-				log.Debug("============================== Gateway Exit Info [Start] =============================")
-				log.Debug(util.UnsafeBytesToString(gatewayOutput.Bytes()))
-				log.Debug("============================== Gateway Exit Info [End] =============================")
-			}()
+	gatewayConfigPath := path.Join(testPath, "gateway.yml")
+	if _, err := os.Stat(gatewayConfigPath); err == nil {
+		if gatewayPath == "" {
+			return nil, errors.New("invalid LR_GATEWAY_CMD, cannot find gateway")
 		}
+		gatewayOutput := &bytes.Buffer{}
+		// Start gateway server
+		gatewayHost, gatewayApiHost := appConfig.Environments[env_LR_GATEWAY_HOST], appConfig.Environments[env_LR_GATEWAY_API_HOST]
+		gatewayCmd, gatewayExited, err := runGateway(ctx, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost, env, gatewayOutput)
+		if err != nil {
+			return nil, err
+		}
+
+		defer func() {
+			log.Debug("waiting for 5s to stop the gateway")
+			gatewayCmd.Process.Signal(os.Interrupt)
+			timeout := time.NewTimer(5 * time.Second)
+			select {
+			case <-gatewayExited:
+			case <-timeout.C:
+			}
+			log.Debug("============================== Gateway Exit Info [Start] =============================")
+			log.Debug(util.UnsafeBytesToString(gatewayOutput.Bytes()))
+			log.Debug("============================== Gateway Exit Info [End] =============================")
+		}()
 	}
 
 	log.Debugf("Executing loadgen with args [%+v]", loadgenCmdArgs)
