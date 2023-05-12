@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -79,6 +80,10 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	defer cancel()
 
 	testPath := path.Join(appConfig.Environments[env_LR_TEST_DIR], test.Path)
+	loadgenPath, err := filepath.Abs(appConfig.Environments[env_LR_LOADGEN_CMD])
+	if err != nil {
+		return nil, err
+	}
 
 	loadgenConfigPath := path.Join(testPath, "loadgen.yml")
 
@@ -90,7 +95,6 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 	env := generateEnv(appConfig)
 	log.Debugf("Executing gateway/loadgen with environment [%+v]", env)
 
-	loadgenPath := appConfig.Environments[env_LR_LOADGEN_CMD]
 	loadgenCmdArgs := []string{"-config", loadgenConfigPath, "-log", loadgenLogLevel}
 	if test.Compress {
 		loadgenCmdArgs = append(loadgenCmdArgs, "--compress")
@@ -101,7 +105,11 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 		if _, err := os.Stat(gatewayConfigPath); err == nil {
 			gatewayOutput := &bytes.Buffer{}
 			// Start gateway server
-			gatewayPath, gatewayHost, gatewayApiHost := appConfig.Environments[env_LR_GATEWAY_CMD], appConfig.Environments[env_LR_GATEWAY_HOST], appConfig.Environments[env_LR_GATEWAY_API_HOST]
+			gatewayPath, err := filepath.Abs(appConfig.Environments[env_LR_GATEWAY_CMD])
+			if err != nil {
+				return nil, err
+			}
+			gatewayHost, gatewayApiHost := appConfig.Environments[env_LR_GATEWAY_HOST], appConfig.Environments[env_LR_GATEWAY_API_HOST]
 			gatewayCmd, gatewayExited, err := runGateway(ctx, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost, env, gatewayOutput)
 			if err != nil {
 				return nil, err
@@ -136,7 +144,7 @@ func runTest(appConfig *AppConfig, test Test) (*TestResult, error) {
 		testResult.DurationInMs = int64(testResult.Time.Sub(startTime) / time.Millisecond)
 	}()
 
-	err := loadgenCmd.Run()
+	err = loadgenCmd.Run()
 	if err != nil {
 		log.Debugf("failed to run test case, error: %+v", err)
 		testResult.Failed = true
