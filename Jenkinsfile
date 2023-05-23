@@ -19,6 +19,7 @@ pipeline {
                     sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make config build-arm'
                     sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make config build-darwin'
                     sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && make config build-win'
+		    sh 'cd /home/jenkins/go/src/infini.sh/loadgen && git stash && git pull origin master && GOROOT="/infini/go-pkgs/go-loongarch" GOPATH="/home/jenkins/go" make build-linux-loong64'
 
                    sh label: 'copy-configs', script: 'cd /home/jenkins/go/src/infini.sh/loadgen && cp -R dict bin && cp ../framework/LICENSE bin && cat ../framework/NOTICE NOTICE > bin/NOTICE'
 
