@@ -94,7 +94,7 @@ func doRequest(globalCtx util.MapStr, item *RequestItem, result *RequestResult) 
 	defer fasthttp.ReleaseResponse(resp)
 
 	start := time.Now()
-	err = httpClient.DoTimeout(req, resp, 60*time.Second)
+	err = httpClient.DoTimeout(req, resp, time.Duration(timeout)*time.Second)
 	result.Duration = time.Since(start)
 	result.Status = resp.StatusCode()
 
