@@ -33,8 +33,12 @@ for t in 386 amd64 arm64 armv5 armv6 armv7 loong64 mips mips64 mips64le mipsle r
   tar zcf ${WORKSPACE}/$PNAME-$VERSION-$BUILD_NUMBER-linux-$t.tar.gz "${PNAME}-linux-$t" $PNAME.yml LICENSE NOTICE 
 done
 
-for t in mac-amd64 mac-arm64 windows-amd64 windows-386 ; do
+for t in mac-amd64 mac-arm64 ; do
   zip -qr ${WORKSPACE}/$PNAME-$VERSION-$BUILD_NUMBER-$t.zip $PNAME-$t $PNAME.yml LICENSE NOTICE
+done
+
+for t in windows-amd64 windows-386 ; do
+  zip -qr ${WORKSPACE}/$PNAME-$VERSION-$BUILD_NUMBER-$t.zip $PNAME-$t.exe $PNAME.yml LICENSE NOTICE config
 done
 
 #build image & push
