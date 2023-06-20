@@ -82,39 +82,47 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 func doRequest(globalCtx util.MapStr, item *RequestItem, result *RequestResult) (reqBody, respBody []byte, err error) {
 	result.Reset()
 
-	req := fasthttp.AcquireRequest()
-	req.Reset()
-	req.ResetBody()
-	defer fasthttp.ReleaseRequest(req)
-	//replace url variable
-	item.prepareRequest(globalCtx, req)
-	resp := fasthttp.AcquireResponse()
-	resp.Reset()
-	resp.ResetBody()
-	defer fasthttp.ReleaseResponse(resp)
+	var resp *fasthttp.Response
 
-	start := time.Now()
-	err = httpClient.DoTimeout(req, resp, time.Duration(timeout)*time.Second)
-	result.Duration = time.Since(start)
-	result.Status = resp.StatusCode()
+	if item.Request != nil {
+		req := fasthttp.AcquireRequest()
+		req.Reset()
+		req.ResetBody()
+		defer fasthttp.ReleaseRequest(req)
+		//replace url variable
+		item.prepareRequest(globalCtx, req)
+		resp = fasthttp.AcquireResponse()
+		resp.Reset()
+		resp.ResetBody()
+		defer fasthttp.ReleaseResponse(resp)
 
-	stats.Timing("request", "duration", result.Duration.Milliseconds())
-	stats.Increment("request", "total")
-	stats.Increment("request", strconv.Itoa(resp.StatusCode()))
+		start := time.Now()
+		err = httpClient.DoTimeout(req, resp, time.Duration(timeout)*time.Second)
+		result.Duration = time.Since(start)
+		result.Status = resp.StatusCode()
 
-	result.RequestSize = req.GetRequestLength()
-	result.ResponseSize = resp.GetResponseLength()
+		stats.Timing("request", "duration", result.Duration.Milliseconds())
+		stats.Increment("request", "total")
+		stats.Increment("request", strconv.Itoa(resp.StatusCode()))
 
-	reqBody = req.GetRawBody()
-	respBody = resp.GetRawBody()
+		result.RequestSize = req.GetRequestLength()
+		result.ResponseSize = resp.GetResponseLength()
 
-	// skip verify
-	if err != nil {
-		result.Error = true
-		if item.Assert != nil {
-			result.Invalid = true
+		reqBody = req.GetRawBody()
+		respBody = resp.GetRawBody()
+
+		// skip verify
+		if err != nil {
+			result.Error = true
+			if item.Assert != nil {
+				result.Invalid = true
+			}
+			return
 		}
-		return
+	}
+
+	if item.Sleep != nil {
+		time.Sleep(time.Duration(item.Sleep.SleepInMilliSeconds) * time.Millisecond)
 	}
 
 	if item.Register != nil {
@@ -154,14 +162,18 @@ func doRequest(globalCtx util.MapStr, item *RequestItem, result *RequestResult) 
 }
 
 func buildCtx(resp *fasthttp.Response, respBody []byte, result *RequestResult) util.MapStr {
+	var statusCode int
 	header := map[string]interface{}{}
-	resp.Header.VisitAll(func(k, v []byte) {
-		header[string(k)] = string(v)
-	})
+	if resp != nil {
+		resp.Header.VisitAll(func(k, v []byte) {
+			header[string(k)] = string(v)
+		})
+		statusCode = resp.StatusCode()
+	}
 	event := util.MapStr{
 		"_ctx": map[string]interface{}{
 			"response": map[string]interface{}{
-				"status":      resp.StatusCode(),
+				"status":      statusCode,
 				"header":      header,
 				"body":        string(respBody),
 				"body_length": len(respBody),
@@ -215,7 +227,7 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 
 			reqBody, respBody, err := doRequest(globalCtx, &item, result)
 
-			if config.RunnerConfig.LogRequests || util.ContainsInAnyInt32Array(result.Status, config.RunnerConfig.LogStatusCodes) {
+			if item.Request != nil && config.RunnerConfig.LogRequests || util.ContainsInAnyInt32Array(result.Status, config.RunnerConfig.LogStatusCodes) {
 				log.Infof("[%v] %v, %v - %v", item.Request.Method, item.Request.Url, item.Request.Headers, util.SubString(string(reqBody), 0, 512))
 				log.Infof("status: %v, error: %v, response: %v", result.Status, err, util.SubString(string(respBody), 0, 512))
 			}
@@ -240,7 +252,11 @@ func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
 			stats.StatusCode[result.Status]++
 
 			if result.Invalid {
-				fmt.Printf("#%d request, %s %s, assertion failed, skiping subsequent requests", idx, item.Request.Method, item.Request.Url)
+				if item.Request != nil {
+					fmt.Printf("#%d request, %s %s, assertion failed, skiping subsequent requests", idx, item.Request.Method, item.Request.Url)
+				} else {
+					fmt.Printf("#%d action, assertion failed, skiping subsequent requests", idx)
+				}
 				stats.NumInvalid++
 				break
 			}
