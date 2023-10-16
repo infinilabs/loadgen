@@ -249,6 +249,12 @@ func buildVariableValue(x Variable) string {
 		return time.Now().UTC().Format(TsLayout)
 	case "now_unix":
 		return util.IntToString(int(time.Now().Local().Unix()))
+	case "now_unix_in_ms":
+		return util.IntToString(int(time.Now().Local().UnixMilli()))
+	case "now_unix_in_micro":
+		return util.IntToString(int(time.Now().Local().UnixMicro()))
+	case "now_unix_in_nano":
+		return util.IntToString(int(time.Now().Local().UnixNano()))
 	case "int_array_bitmap":
 		rb3 := roaring.New()
 		if x.Size > 0 {
