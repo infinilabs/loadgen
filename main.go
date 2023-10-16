@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"infini.sh/framework/core/global"
 	"os"
 	"os/signal"
 	"time"
@@ -211,19 +212,19 @@ func main() {
 
 		items := []RequestItem{}
 		ok, err := env.ParseConfig("requests", &items)
-		if ok && err != nil {
+		if ok && err != nil  &&global.Env().SystemConfig.Configs.PanicOnConfigError{
 			panic(err)
 		}
 
 		variables := []Variable{}
 		ok, err = env.ParseConfig("variables", &variables)
-		if ok && err != nil {
+		if ok && err != nil  &&global.Env().SystemConfig.Configs.PanicOnConfigError{
 			panic(err)
 		}
 
 		runnerConfig := RunnerConfig{}
 		ok, err = env.ParseConfig("runner", &runnerConfig)
-		if ok && err != nil {
+		if ok && err != nil  &&global.Env().SystemConfig.Configs.PanicOnConfigError{
 			panic(err)
 		}
 

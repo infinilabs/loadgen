@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"infini.sh/framework/core/global"
 	"os"
 	"strings"
 
@@ -36,7 +37,7 @@ func main() {
 	if app.Setup(func() {
 		environments := map[string]string{}
 		ok, err := env.ParseConfig("env", &environments)
-		if ok && err != nil {
+		if ok && err != nil  &&global.Env().SystemConfig.Configs.PanicOnConfigError{
 			panic(err)
 		}
 		environs := os.Environ()
@@ -52,7 +53,7 @@ func main() {
 
 		tests := []Test{}
 		ok, err = env.ParseConfig("tests", &tests)
-		if ok && err != nil {
+		if ok && err != nil  &&global.Env().SystemConfig.Configs.PanicOnConfigError{
 			panic(err)
 		}
 
