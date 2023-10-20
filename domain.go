@@ -328,8 +328,9 @@ func buildVariableValue(x Variable) string {
 type RequestItem struct {
 	Request *Request `config:"request"`
 	// TODO: mask invalid gateway fields
-	Assert *conditions.Config `config:"assert"`
-	Sleep  *SleepAction       `config:"sleep"`
+	Assert    *conditions.Config `config:"assert"`
+	AssertDsl string             `config:"assert_dsl"`
+	Sleep     *SleepAction       `config:"sleep"`
 	// Populate global context with `_ctx` values
 	Register []map[string]string `config:"register"`
 }

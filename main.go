@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	_ "embed"
+	E "errors"
 	"flag"
 	"fmt"
 	"infini.sh/framework/core/global"
@@ -9,13 +12,20 @@ import (
 	"time"
 
 	log "github.com/cihub/seelog"
+	wasm "github.com/tetratelabs/wazero"
+	wasmAPI "github.com/tetratelabs/wazero/api"
 	"infini.sh/framework"
+	"infini.sh/framework/core/conditions"
+	coreConfig "infini.sh/framework/core/config"
 	"infini.sh/framework/core/env"
 	"infini.sh/framework/core/module"
 	"infini.sh/framework/core/util"
 	stats "infini.sh/framework/plugins/stats_statsd"
 	"infini.sh/loadgen/config"
 )
+
+//go:embed plugins/loadgen_dsl.wasm
+var loadgenDSL []byte
 
 var duration int = 10
 var goroutines int = 2
@@ -216,6 +226,25 @@ func main() {
 			panic(err)
 		}
 
+		for i := range items {
+			req := &items[i]
+			if req.AssertDsl != "" {
+				output, err := loadPlugins([][]byte{loadgenDSL}, string(req.AssertDsl))
+				if err != nil {
+					panic(err)
+				}
+				outputParser, err := coreConfig.NewConfigWithYAML([]byte(output), "loadgen-dsl")
+				if err != nil {
+					panic(err)
+				}
+				assert := conditions.Config{}
+				if err := outputParser.Unpack(&assert); err != nil {
+					panic(err)
+				}
+				req.Assert = &assert
+			}
+		}
+
 		variables := []Variable{}
 		ok, err = env.ParseConfig("variables", &variables)
 		if ok && err != nil  &&global.Env().SystemConfig.Configs.PanicOnConfigError{
@@ -257,4 +286,78 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 
+}
+
+func loadPlugins(plugins [][]byte, input string) (output string, err error) {
+	// init runtime
+	ctx := context.Background()
+	r := wasm.NewRuntime(ctx)
+	defer r.Close(ctx)
+
+	var mod wasmAPI.Module
+	for _, plug := range plugins {
+		// load plugin
+		mod, err = r.Instantiate(ctx, plug)
+		if err != nil {
+			return
+		}
+		// call plugin
+		output, err = callPlugin(ctx, mod, string(input))
+		if err != nil {
+			break
+		}
+	}
+	return
+}
+
+func callPlugin(ctx context.Context, mod wasmAPI.Module, input string) (output string, err error) {
+	alloc := mod.ExportedFunction("allocate")
+	free := mod.ExportedFunction("deallocate")
+	process := mod.ExportedFunction("process")
+
+	// write input
+	inputSize := uint32(len(input))
+	ret, err := alloc.Call(ctx, uint64(inputSize))
+	if err != nil {
+		return
+	}
+	inputPtr := ret[0]
+	defer free.Call(ctx, inputPtr)
+	_, inputAddr, _ := decodePtr(inputPtr)
+	mod.Memory().Write(inputAddr, []byte(input))
+
+	// prepare memory for results
+	ret, err = alloc.Call(ctx, uint64(4))
+	if err != nil {
+		return
+	}
+	errorPtr := ret[0]
+	defer free.Call(ctx, errorPtr)
+
+	// compile input
+	ret, err = process.Call(ctx, inputPtr)
+	if err != nil {
+		return
+	}
+	outputPtr := ret[0]
+	defer free.Call(ctx, outputPtr)
+
+	// read output
+	errors, outputAddr, outputSize := decodePtr(outputPtr)
+	bytes, _ := mod.Memory().Read(outputAddr, outputSize)
+
+	if errors {
+		err = E.New(string(bytes))
+	} else {
+		output = string(bytes)
+	}
+	return
+}
+
+func decodePtr(ptr uint64) (errors bool, addr, size uint32) {
+	const SIZE_MASK uint32 = (^uint32(0)) >> 1
+	addr = uint32(ptr)
+	size = uint32(ptr>>32) & SIZE_MASK
+	errors = (ptr >> 63) != 0
+	return
 }
