@@ -216,7 +216,6 @@ func main() {
 	loaderConfig := AppConfig{}
 
 	if app.Setup(func() {
-
 		module.RegisterUserPlugin(&stats.StatsDModule{})
 		module.Start()
 
@@ -226,6 +225,8 @@ func main() {
 			panic(err)
 		}
 
+		// Consume the logging queue to avoid data race
+		log.Flush()
 		for i := range items {
 			req := &items[i]
 			if req.AssertDsl != "" {
