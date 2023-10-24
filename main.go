@@ -15,7 +15,6 @@ import (
 	wasm "github.com/tetratelabs/wazero"
 	wasmAPI "github.com/tetratelabs/wazero/api"
 	"infini.sh/framework"
-	"infini.sh/framework/core/conditions"
 	coreConfig "infini.sh/framework/core/config"
 	"infini.sh/framework/core/env"
 	"infini.sh/framework/core/module"
@@ -219,43 +218,82 @@ func main() {
 		module.RegisterUserPlugin(&stats.StatsDModule{})
 		module.Start()
 
+		var (
+			ok  bool
+			err error
+		)
+
 		items := []RequestItem{}
-		ok, err := env.ParseConfig("requests", &items)
-		if ok && err != nil  &&global.Env().SystemConfig.Configs.PanicOnConfigError{
-			panic(err)
+		ok, err = env.ParseConfig("requests", &items)
+
+		type RequestsDsl struct {
+			Value string `config:"value"`
 		}
 
-		// Consume the logging queue to avoid data race
-		log.Flush()
-		for i := range items {
-			req := &items[i]
-			if req.AssertDsl != "" {
-				output, err := loadPlugins([][]byte{loadgenDSL}, string(req.AssertDsl))
-				if err != nil {
+		dsl := RequestsDsl{}
+		ok, err = env.ParseConfig("requests_dsl", &dsl)
+		if ok && err != nil {
+			if global.Env().SystemConfig.Configs.PanicOnConfigError {
+				panic(err)
+			} else {
+				log.Error(err)
+			}
+		}
+		if dsl.Value != "" {
+			output, err := loadPlugins([][]byte{loadgenDSL}, dsl.Value)
+			if err != nil {
+				if global.Env().SystemConfig.Configs.PanicOnConfigError {
 					panic(err)
+				} else {
+					log.Error(err)
 				}
-				outputParser, err := coreConfig.NewConfigWithYAML([]byte(output), "loadgen-dsl")
-				if err != nil {
+			}
+			println(output)
+			outputParser, err := coreConfig.NewConfigWithYAML([]byte(output), "loadgen-dsl")
+			if err != nil {
+				if global.Env().SystemConfig.Configs.PanicOnConfigError {
 					panic(err)
+				} else {
+					log.Error(err)
 				}
-				assert := conditions.Config{}
-				if err := outputParser.Unpack(&assert); err != nil {
+			}
+			if err := outputParser.Unpack(&items); err != nil {
+				if global.Env().SystemConfig.Configs.PanicOnConfigError {
 					panic(err)
+				} else {
+					log.Error(err)
 				}
-				req.Assert = &assert
+			}
+		} else {
+			ok, err = env.ParseConfig("requests", &items)
+			if ok && err != nil {
+				if global.Env().SystemConfig.Configs.PanicOnConfigError {
+					panic(err)
+				} else {
+					log.Error(err)
+				}
 			}
 		}
 
 		variables := []Variable{}
 		ok, err = env.ParseConfig("variables", &variables)
-		if ok && err != nil  &&global.Env().SystemConfig.Configs.PanicOnConfigError{
-			panic(err)
+		if ok && err != nil {
+			if global.Env().SystemConfig.Configs.PanicOnConfigError {
+				panic(err)
+			} else {
+				log.Error(err)
+			}
 		}
 
 		runnerConfig := RunnerConfig{}
 		ok, err = env.ParseConfig("runner", &runnerConfig)
-		if ok && err != nil  &&global.Env().SystemConfig.Configs.PanicOnConfigError{
-			panic(err)
+		if ok && err != nil {
+			if global.Env().SystemConfig.Configs.PanicOnConfigError {
+				panic(err)
+			} else {
+				log.Error(err)
+
+			}
 		}
 
 		loaderConfig.Requests = items
