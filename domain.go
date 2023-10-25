@@ -97,9 +97,9 @@ type Variable struct {
 
 type AppConfig struct {
 	// Access order: runtime_variables -> register -> variables
-	Variable     []Variable
-	Requests     []RequestItem
-	RunnerConfig RunnerConfig
+	Variable     []Variable    `config:"variables"`
+	Requests     []RequestItem `config:"requests"`
+	RunnerConfig RunnerConfig  `config:"runner"`
 }
 
 type RunnerConfig struct {

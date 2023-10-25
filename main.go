@@ -6,7 +6,6 @@ import (
 	E "errors"
 	"flag"
 	"fmt"
-	"infini.sh/framework/core/global"
 	"os"
 	"os/signal"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"infini.sh/framework"
 	coreConfig "infini.sh/framework/core/config"
 	"infini.sh/framework/core/env"
+	"infini.sh/framework/core/global"
 	"infini.sh/framework/core/module"
 	"infini.sh/framework/core/util"
 	stats "infini.sh/framework/plugins/stats_statsd"
@@ -225,53 +225,12 @@ func main() {
 
 		items := []RequestItem{}
 		ok, err = env.ParseConfig("requests", &items)
-
-		type RequestsDsl struct {
-			Value string `config:"value"`
-		}
-
-		dsl := RequestsDsl{}
-		ok, err = env.ParseConfig("requests_dsl", &dsl)
+		ok, err = env.ParseConfig("requests", &items)
 		if ok && err != nil {
 			if global.Env().SystemConfig.Configs.PanicOnConfigError {
 				panic(err)
 			} else {
 				log.Error(err)
-			}
-		}
-		if dsl.Value != "" {
-			output, err := loadPlugins([][]byte{loadgenDSL}, dsl.Value)
-			if err != nil {
-				if global.Env().SystemConfig.Configs.PanicOnConfigError {
-					panic(err)
-				} else {
-					log.Error(err)
-				}
-			}
-			println(output)
-			outputParser, err := coreConfig.NewConfigWithYAML([]byte(output), "loadgen-dsl")
-			if err != nil {
-				if global.Env().SystemConfig.Configs.PanicOnConfigError {
-					panic(err)
-				} else {
-					log.Error(err)
-				}
-			}
-			if err := outputParser.Unpack(&items); err != nil {
-				if global.Env().SystemConfig.Configs.PanicOnConfigError {
-					panic(err)
-				} else {
-					log.Error(err)
-				}
-			}
-		} else {
-			ok, err = env.ParseConfig("requests", &items)
-			if ok && err != nil {
-				if global.Env().SystemConfig.Configs.PanicOnConfigError {
-					panic(err)
-				} else {
-					log.Error(err)
-				}
 			}
 		}
 
@@ -299,6 +258,47 @@ func main() {
 		loaderConfig.Requests = items
 		loaderConfig.Variable = variables
 		loaderConfig.RunnerConfig = runnerConfig
+
+		dsl := struct {
+			Value string `config:"value"`
+		}{}
+		ok, err = env.ParseConfig("dsl", &dsl)
+		if ok && err != nil {
+			if global.Env().SystemConfig.Configs.PanicOnConfigError {
+				panic(err)
+			} else {
+				log.Error(err)
+			}
+		}
+		if dsl.Value != "" {
+			output, err := loadPlugins([][]byte{loadgenDSL}, dsl.Value)
+			if err != nil {
+				if global.Env().SystemConfig.Configs.PanicOnConfigError {
+					panic(err)
+				} else {
+					log.Error(err)
+				}
+			}
+			if global.Env().IsDebug {
+				log.Infof("using config\n%s", output)
+			}
+			outputParser, err := coreConfig.NewConfigWithYAML([]byte(output), "loadgen-dsl")
+			if err != nil {
+				if global.Env().SystemConfig.Configs.PanicOnConfigError {
+					panic(err)
+				} else {
+					log.Error(err)
+				}
+			}
+			if err := outputParser.Unpack(&loaderConfig); err != nil {
+				if global.Env().SystemConfig.Configs.PanicOnConfigError {
+					panic(err)
+				} else {
+					log.Error(err)
+				}
+			}
+		}
+
 		err = loaderConfig.Init()
 		if err != nil {
 			panic(err)
