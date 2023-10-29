@@ -189,7 +189,7 @@ func buildCtx(resp *fasthttp.Response, respBody []byte, result *RequestResult) u
 	return event
 }
 
-func (cfg *LoadGenerator) Run(config AppConfig, countLimit int) {
+func (cfg *LoadGenerator) Run(config LoaderConfig, countLimit int) {
 	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
 	start := time.Now()
 
@@ -366,7 +366,7 @@ func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Reques
 	}
 }
 
-func (cfg *LoadGenerator) Warmup(config AppConfig) int {
+func (cfg *LoadGenerator) Warmup(config LoaderConfig) int {
 	log.Info("warmup started")
 	result := resultPool.Get().(*RequestResult)
 	defer resultPool.Put(result)

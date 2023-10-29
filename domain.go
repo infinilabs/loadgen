@@ -95,7 +95,7 @@ type Variable struct {
 	replacer *strings.Replacer
 }
 
-type AppConfig struct {
+type LoaderConfig struct {
 	// Access order: runtime_variables -> register -> variables
 	Variable     []Variable    `config:"variables"`
 	Requests     []RequestItem `config:"requests"`
@@ -122,7 +122,7 @@ type RunnerConfig struct {
 var dict = map[string][]string{}
 var variables = map[string]Variable{}
 
-func (config *AppConfig) Init() error {
+func (config *LoaderConfig) Init() error {
 	for _, i := range config.Variable {
 		i.Name = util.TrimSpaces(i.Name)
 		_, ok := variables[i.Name]

@@ -35,6 +35,7 @@ var readTimeout int = 0
 var writeTimeout int = 0
 var dialTimeout int = 3
 var compress bool = false
+var dslConfig string
 var statsAggregator chan *LoadStats
 
 func init() {
@@ -47,9 +48,10 @@ func init() {
 	flag.IntVar(&writeTimeout, "write-timeout", 0, "Connection write timeout in seconds, default 0s (use -timeout)")
 	flag.IntVar(&dialTimeout, "dial-timeout", 3, "Connection dial timeout in seconds, default 3s")
 	flag.BoolVar(&compress, "compress", false, "Compress requests with gzip")
+	flag.StringVar(&dslConfig, "run", "loadgen.dsl", "DSL config to run tests")
 }
 
-func startLoader(cfg AppConfig) *LoadStats {
+func startLoader(cfg LoaderConfig) *LoadStats {
 	defer log.Flush()
 
 	statsAggregator = make(chan *LoadStats, goroutines)
@@ -208,11 +210,12 @@ func main() {
 	app := framework.NewApp("loadgen", "A http load generator and testing suite.",
 		util.TrimSpaces(config.Version), util.TrimSpaces(config.BuildNumber), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
 
+	app.IgnoreMainConfigMissing()
 	app.Init(nil)
 
 	defer app.Shutdown()
 
-	loaderConfig := AppConfig{}
+	loaderConfig := LoaderConfig{}
 
 	if app.Setup(func() {
 		module.RegisterUserPlugin(&stats.StatsDModule{})
@@ -223,9 +226,8 @@ func main() {
 			err error
 		)
 
-		items := []RequestItem{}
-		ok, err = env.ParseConfig("requests", &items)
-		ok, err = env.ParseConfig("requests", &items)
+		dslConfig = util.TryGetFileAbsPath(dslConfig, true)
+		dsl, err := env.LoadConfigContents(dslConfig)
 		if ok && err != nil {
 			if global.Env().SystemConfig.Configs.PanicOnConfigError {
 				panic(err)
@@ -233,10 +235,20 @@ func main() {
 				log.Error(err)
 			}
 		}
+		log.Infof("loading config: %s", dslConfig)
 
-		variables := []Variable{}
-		ok, err = env.ParseConfig("variables", &variables)
-		if ok && err != nil {
+		output, err := loadPlugins([][]byte{loadgenDSL}, dsl)
+		if err != nil {
+			if global.Env().SystemConfig.Configs.PanicOnConfigError {
+				panic(err)
+			} else {
+				log.Error(err)
+			}
+		}
+		log.Debugf("using config:\n%s", output)
+
+		outputParser, err := coreConfig.NewConfigWithYAML([]byte(output), "loadgen-dsl")
+		if err != nil {
 			if global.Env().SystemConfig.Configs.PanicOnConfigError {
 				panic(err)
 			} else {
@@ -244,58 +256,11 @@ func main() {
 			}
 		}
 
-		runnerConfig := RunnerConfig{}
-		ok, err = env.ParseConfig("runner", &runnerConfig)
-		if ok && err != nil {
+		if err := outputParser.Unpack(&loaderConfig); err != nil {
 			if global.Env().SystemConfig.Configs.PanicOnConfigError {
 				panic(err)
 			} else {
 				log.Error(err)
-
-			}
-		}
-
-		loaderConfig.Requests = items
-		loaderConfig.Variable = variables
-		loaderConfig.RunnerConfig = runnerConfig
-
-		dsl := struct {
-			Value string `config:"value"`
-		}{}
-		ok, err = env.ParseConfig("dsl", &dsl)
-		if ok && err != nil {
-			if global.Env().SystemConfig.Configs.PanicOnConfigError {
-				panic(err)
-			} else {
-				log.Error(err)
-			}
-		}
-		if dsl.Value != "" {
-			output, err := loadPlugins([][]byte{loadgenDSL}, dsl.Value)
-			if err != nil {
-				if global.Env().SystemConfig.Configs.PanicOnConfigError {
-					panic(err)
-				} else {
-					log.Error(err)
-				}
-			}
-			if global.Env().IsDebug {
-				log.Infof("using config\n%s", output)
-			}
-			outputParser, err := coreConfig.NewConfigWithYAML([]byte(output), "loadgen-dsl")
-			if err != nil {
-				if global.Env().SystemConfig.Configs.PanicOnConfigError {
-					panic(err)
-				} else {
-					log.Error(err)
-				}
-			}
-			if err := outputParser.Unpack(&loaderConfig); err != nil {
-				if global.Env().SystemConfig.Configs.PanicOnConfigError {
-					panic(err)
-				} else {
-					log.Error(err)
-				}
 			}
 		}
 
