@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"os"
@@ -253,9 +252,9 @@ func (cfg *LoadGenerator) Run(config LoaderConfig, countLimit int) {
 
 			if result.Invalid {
 				if item.Request != nil {
-					fmt.Printf("#%d request, %s %s, assertion failed, skiping subsequent requests", idx, item.Request.Method, item.Request.Url)
+					log.Errorf("#%d request, %s %s, assertion failed, skiping subsequent requests", idx, item.Request.Method, item.Request.Url)
 				} else {
-					fmt.Printf("#%d action, assertion failed, skiping subsequent requests", idx)
+					log.Errorf("#%d action, assertion failed, skiping subsequent requests", idx)
 				}
 				stats.NumInvalid++
 				break
