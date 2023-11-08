@@ -32,6 +32,7 @@ import (
 	"infini.sh/framework/core/conditions"
 	"infini.sh/framework/core/errors"
 	"infini.sh/framework/core/util"
+	"infini.sh/framework/lib/fasthttp"
 )
 
 type valuesMap map[string]interface{}
@@ -59,6 +60,8 @@ type Request struct {
 
 	RuntimeVariables         map[string]string `config:"runtime_variables"`
 	RuntimeBodyLineVariables map[string]string `config:"runtime_body_line_variables"`
+
+	defaultEndpoint *fasthttp.URI
 
 	urlHasTemplate  bool
 	bodyHasTemplate bool
@@ -137,6 +140,8 @@ type RunnerConfig struct {
 	LogStatusCodes []int `config:"log_status_codes"`
 	// Disable fasthttp client's header names normalizing, preserve original header key, for responses
 	DisableHeaderNamesNormalizing bool `config:"disable_header_names_normalizing"`
+	// Default endpoint if not specified in a request
+	DefaultEndpoint string `config:"default_endpoint"`
 }
 
 /*
@@ -231,11 +236,15 @@ func (config *LoaderConfig) Init() error {
 		variables[i.Name] = i
 	}
 
+	defaultEndpoint := fasthttp.URI{}
+	defaultEndpoint.Parse(nil, []byte(config.RunnerConfig.DefaultEndpoint))
+
 	var err error
 	for _, v := range config.Requests {
 		if v.Request == nil {
 			continue
 		}
+		v.Request.defaultEndpoint = &defaultEndpoint
 		v.Request.headerTemplates = map[string]*fasttemplate.Template{}
 
 		if util.ContainStr(v.Request.Url, "$[[") {

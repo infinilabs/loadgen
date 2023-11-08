@@ -305,6 +305,15 @@ func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Reques
 		})
 	}
 
+	//set default endpoint
+	parsedUrl := fasthttp.URI{}
+	parsedUrl.Parse(nil, []byte(url))
+	if parsedUrl.Host() == nil || len(parsedUrl.Host()) == 0 {
+		parsedUrl.SetSchemeBytes(v.Request.defaultEndpoint.Scheme())
+		parsedUrl.SetHostBytes(v.Request.defaultEndpoint.Host())
+	}
+	url = parsedUrl.String()
+
 	req.SetRequestURI(url)
 
 	log.Debugf("final request url: %s", url)
