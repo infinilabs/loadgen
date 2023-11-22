@@ -283,7 +283,7 @@ func runLoaderConfig(path string) int {
 		loaderConfig LoaderConfig
 	)
 
-	path = util.TryGetFileAbsPath(path, true)
+	path = util.TryGetFileAbsPath(path, false)
 	input, err := env.LoadConfigContents(path)
 	if ok && err != nil {
 		if global.Env().SystemConfig.Configs.PanicOnConfigError {
