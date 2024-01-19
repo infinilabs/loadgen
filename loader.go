@@ -78,22 +78,24 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 	return
 }
 
+var defaultHTTPPool=fasthttp.NewRequestResponsePool("default_http")
+
 func doRequest(globalCtx util.MapStr, item *RequestItem, result *RequestResult) (reqBody, respBody []byte, err error) {
 	result.Reset()
 
 	var resp *fasthttp.Response
 
 	if item.Request != nil {
-		req := fasthttp.AcquireRequest()
+		req := defaultHTTPPool.AcquireRequest()
 		req.Reset()
 		req.ResetBody()
-		defer fasthttp.ReleaseRequest(req)
+		defer defaultHTTPPool.ReleaseRequest(req)
 		//replace url variable
 		item.prepareRequest(globalCtx, req)
-		resp = fasthttp.AcquireResponse()
+		resp = defaultHTTPPool.AcquireResponse()
 		resp.Reset()
 		resp.ResetBody()
-		defer fasthttp.ReleaseResponse(resp)
+		defer defaultHTTPPool.ReleaseResponse(resp)
 
 		start := time.Now()
 		err = httpClient.DoTimeout(req, resp, time.Duration(timeout)*time.Second)
