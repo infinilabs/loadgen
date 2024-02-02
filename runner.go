@@ -95,6 +95,8 @@ func runTest(config *AppConfig, cwd string, test Test) (*TestResult, error) {
 	if err := os.Chdir(testPath); err != nil {
 		return nil, err
 	}
+	// Revert cwd change
+	defer os.Chdir(cwd)
 
 	env := generateEnv(config)
 	log.Debugf("Executing gateway with environment [%+v]", env)

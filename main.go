@@ -262,10 +262,15 @@ func main() {
 		appConfig.Init()
 	}, func() {
 		go func() {
-			if len(appConfig.Tests) > 0 && !startRunner(&appConfig) {
-				os.Exit(1)
+			status := 0
+			if len(appConfig.Tests) > 0 {
+				if !startRunner(&appConfig) {
+					status = 1
+				}
+			} else {
+				status = runLoaderConfig(loaderConfigPath)
 			}
-			os.Exit(runLoaderConfig(loaderConfigPath))
+			os.Exit(status)
 		}()
 
 	}, nil) {
