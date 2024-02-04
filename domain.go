@@ -142,6 +142,9 @@ type RunnerConfig struct {
 	DisableHeaderNamesNormalizing bool `config:"disable_header_names_normalizing"`
 	// Default endpoint if not specified in a request
 	DefaultEndpoint string `config:"default_endpoint"`
+	// Whether to reset the context, including variables, runtime KV pairs, etc.,
+	// before this test run.
+	ResetContext bool `config:"reset_context"`
 }
 
 /*
@@ -175,7 +178,7 @@ const (
 )
 
 var (
-	dict      map[string][]string
+	dict      = map[string][]string{}
 	variables map[string]Variable
 )
 
@@ -198,8 +201,13 @@ func (config *AppConfig) testEnv(envVars ...string) bool {
 }
 
 func (config *LoaderConfig) Init() error {
-	dict = map[string][]string{}
+	// As we do not allow duplicate variable definitions, it is necessary to clear
+	// any previously defined variables.
 	variables = map[string]Variable{}
+	if config.RunnerConfig.ResetContext {
+		dict = map[string][]string{}
+		util.ClearAllID()
+	}
 
 	for _, i := range config.Variable {
 		i.Name = util.TrimSpaces(i.Name)
