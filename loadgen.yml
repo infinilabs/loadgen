@@ -19,3 +19,90 @@ tests:
   #
   # The environments set in `env` section will be passed to the INFINI Gateway and loadgen.
   - path: cases/gateway/echo/echo_with_context
+
+# The old format for defining tests. You also can use loadgen.dsl for a
+# simplified syntax.
+runner:
+  # total_rounds: 1
+  no_warm: false
+  # Whether to log all requests
+  log_requests: false
+  # Whether to log all requests with the specified response status
+  log_status_codes:
+    - 0
+    - 500
+  assert_invalid: false
+  assert_error: false
+  # Whether to reset the context, including variables, runtime KV pairs, etc.,
+  # before this test run.
+  reset_context: false
+  default_endpoint: http://localhost:8000
+variables:
+  - name: ip
+    type: file
+    path: dict/ip.txt
+    replace: # replace special characters in the value
+      '"': '\"'
+      '\': '\\'
+  - name: id
+    type: sequence
+  - name: id64
+    type: sequence64
+  - name: uuid
+    type: uuid
+  - name: now_local
+    type: now_local
+  - name: now_utc
+    type: now_utc
+  - name: now_utc_lite
+    type: now_utc_lite
+  - name: now_unix
+    type: now_unix
+  - name: now_with_format
+    type: now_with_format #https://programming.guide/go/format-parse-string-time-date-example.html
+    format: "2006-01-02T15:04:05-0700" #2006-01-02T15:04:05
+  - name: suffix
+    type: range
+    from: 10
+    to: 1000
+  - name: bool
+    type: range
+    from: 0
+    to: 1
+  - name: list
+    type: list
+    data:
+      - "medcl"
+      - "abc"
+      - "efg"
+      - "xyz"
+  - name: id_list
+    type: random_array
+    variable_type: number # number/string
+    variable_key: suffix # variable key to get array items
+    square_bracket: false
+    size: 10 # how many items for array
+  - name: str_list
+    type: random_array
+    variable_type: string # number/string
+    variable_key: suffix #variable key to get array items
+    square_bracket: true
+    size: 10 # how many items for array
+    replace:
+      '"': "'" # use ' instead of " for string quotes
+      # use {} instead of [] as array brackets
+      "[": "{"
+      "]": "}"
+requests:
+  - request:
+      method: POST
+      runtime_variables:
+        batch_no: uuid
+      runtime_body_line_variables:
+        routing_no: uuid
+      basic_auth:
+        username: $[[env.ES_USERNAME]]
+        password: $[[env.ES_PASSWORD]]
+      url: /medcl/_search
+      body: |
+        { "track_total_hits": true, "size": 0, "query": { "terms": { "patent_id": [ $[[id_list]] ] } } }

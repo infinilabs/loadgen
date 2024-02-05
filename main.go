@@ -50,11 +50,11 @@ func init() {
 	flag.IntVar(&writeTimeout, "write-timeout", 0, "Connection write timeout in seconds, default 0s (use -timeout)")
 	flag.IntVar(&dialTimeout, "dial-timeout", 3, "Connection dial timeout in seconds, default 3s")
 	flag.BoolVar(&compress, "compress", false, "Compress requests with gzip")
-	flag.StringVar(&loaderConfigPath, "run", "loadgen.dsl", "DSL config to run tests")
+	flag.StringVar(&loaderConfigPath, "run", "", "DSL config to run tests")
 	flag.StringVar(&gatewayLogLevel, "gateway-log", "debug", "Log level of Gateway")
 }
 
-func startLoader(cfg LoaderConfig) *LoadStats {
+func startLoader(cfg *LoaderConfig) *LoadStats {
 	defer log.Flush()
 
 	statsAggregator = make(chan *LoadStats, goroutines)
@@ -257,20 +257,63 @@ func main() {
 			}
 		}
 
+		requests := []RequestItem{}
+		ok, err = env.ParseConfig("requests", &requests)
+		if ok && err != nil {
+			if global.Env().SystemConfig.Configs.PanicOnConfigError {
+				panic(err)
+			} else {
+				log.Error(err)
+			}
+		}
+
+		variables := []Variable{}
+		ok, err = env.ParseConfig("variables", &variables)
+		if ok && err != nil {
+			if global.Env().SystemConfig.Configs.PanicOnConfigError {
+				panic(err)
+			} else {
+				log.Error(err)
+			}
+		}
+
+		runnerConfig := RunnerConfig{}
+		ok, err = env.ParseConfig("runner", &runnerConfig)
+		if ok && err != nil {
+			if global.Env().SystemConfig.Configs.PanicOnConfigError {
+				panic(err)
+			} else {
+				log.Error(err)
+			}
+		}
+
 		appConfig.Environments = environments
 		appConfig.Tests = tests
+		appConfig.Requests = requests
+		appConfig.Variable = variables
+		appConfig.RunnerConfig = runnerConfig
 		appConfig.Init()
 	}, func() {
 		go func() {
-			status := 0
-			if len(appConfig.Tests) > 0 {
+			if len(appConfig.Tests) != 0 {
+				log.Infof("running test suite")
 				if !startRunner(&appConfig) {
-					status = 1
+					os.Exit(1)
 				}
-			} else {
-				status = runLoaderConfig(loaderConfigPath)
 			}
-			os.Exit(status)
+			if len(appConfig.Requests) != 0 {
+				log.Infof("running standalone test")
+				if status := runLoaderConfig(&appConfig.LoaderConfig); status != 0 {
+					os.Exit(status)
+				}
+			}
+			if loaderConfigPath != "" {
+				log.Infof("running standalone test from %s", loaderConfigPath)
+				if status := runDSL(loaderConfigPath); status != 0 {
+					os.Exit(status)
+				}
+			}
+			os.Exit(0)
 		}()
 
 	}, nil) {
@@ -281,7 +324,7 @@ func main() {
 
 }
 
-func runLoaderConfig(path string) int {
+func runDSL(path string) int {
 	var (
 		ok           bool
 		err          error
@@ -326,17 +369,21 @@ func runLoaderConfig(path string) int {
 		}
 	}
 
-	err = loaderConfig.Init()
+	return runLoaderConfig(&loaderConfig)
+}
+
+func runLoaderConfig(config *LoaderConfig) int {
+	err := config.Init()
 	if err != nil {
 		panic(err)
 	}
 
-	aggStats := startLoader(loaderConfig)
+	aggStats := startLoader(config)
 	if aggStats != nil {
-		if loaderConfig.RunnerConfig.AssertInvalid && aggStats.NumInvalid > 0 {
+		if config.RunnerConfig.AssertInvalid && aggStats.NumInvalid > 0 {
 			return 1
 		}
-		if loaderConfig.RunnerConfig.AssertError && aggStats.NumErrs > 0 {
+		if config.RunnerConfig.AssertError && aggStats.NumErrs > 0 {
 			return 2
 		}
 	}

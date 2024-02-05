@@ -116,6 +116,7 @@ type AppConfig struct {
 	*/
 	Environments map[string]string `config:"env"`
 	Tests        []Test            `config:"tests"`
+	LoaderConfig
 }
 
 type LoaderConfig struct {

@@ -7,6 +7,10 @@
 #   log_status_codes: [0, 500],
 #   assert_invalid: false,
 #   assert_error: false,
+#   // Whether to reset the context, including variables, runtime KV pairs,
+#   // etc., before this test run.
+#   reset_context: false,
+#   default_endpoint: "http://localhost:8000",
 # },
 # variables: [
 #   {
@@ -95,7 +99,7 @@
 #   },
 # ],
 
-POST $[[env.ES_ENDPOINT]]/medcl/_search
+POST /medcl/_search
 { "track_total_hits": true, "size": 0, "query": { "terms": { "patent_id": [ $[[id_list]] ] } } }
 # request: {
 #   runtime_variables: {batch_no: "uuid"},
