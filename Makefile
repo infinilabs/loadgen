@@ -3,7 +3,7 @@ SHELL=/bin/bash
 # APP info
 APP_NAME := loadgen
 APP_VERSION := 1.0.0_SNAPSHOT
-APP_CONFIG := $(APP_NAME).yml
+APP_CONFIG := $(APP_NAME).yml $(APP_NAME).dsl
 APP_EOLDate ?= "2023-12-31T10:10:10Z"
 APP_STATIC_FOLDER := .public
 APP_STATIC_PACKAGE := public
