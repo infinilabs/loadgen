@@ -99,6 +99,15 @@
 #   },
 # ],
 
+DELETE /medcl
+
+PUT /medcl
+
+POST /medcl/_doc/1
+{
+ "name": "medcl"
+}
+
 POST /medcl/_search
 { "track_total_hits": true, "size": 0, "query": { "terms": { "patent_id": [ $[[id_list]] ] } } }
 # request: {

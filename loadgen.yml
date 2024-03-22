@@ -1,6 +1,6 @@
 env:
-  ES_USERNAME: elastic
-  ES_PASSWORD: elastic
+  ES_USERNAME: username
+  ES_PASSWORD: password
   ES_ENDPOINT: http://localhost:8000
   # Set up envrionments to run test suite
   LR_TEST_DIR: ./testing # The path to the test cases.
@@ -11,17 +11,19 @@ env:
   # Set up other envrionments for the gateway and loadgen
   LR_ELASTICSEARCH_ENDPOINT: http://localhost:19201
   CUSTOM_ENV: myenv
-tests:
-  # The relative path of test cases under `LR_TEST_DIR`
-  #
-  # - gateway.yml: (Optional) the configuration to start the INFINI Gateway dynamically.
-  # - loadgen.dsl: the configuration to run the loadgen tool.
-  #
-  # The environments set in `env` section will be passed to the INFINI Gateway and loadgen.
-  - path: cases/gateway/echo/echo_with_context
+
+#tests:
+#  # The relative path of test cases under `LR_TEST_DIR`
+#  #
+#  # - gateway.yml: (Optional) the configuration to start the INFINI Gateway dynamically.
+#  # - loadgen.dsl: the configuration to run the loadgen tool.
+#  #
+#  # The environments set in `env` section will be passed to the INFINI Gateway and loadgen.
+#  - path: cases/gateway/echo/echo_with_context
 
 # The old format for defining tests. You also can use loadgen.dsl for a
 # simplified syntax.
+
 runner:
   # total_rounds: 1
   no_warm: false
@@ -37,6 +39,7 @@ runner:
   # before this test run.
   reset_context: false
   default_endpoint: http://localhost:8000
+
 variables:
   - name: ip
     type: file
@@ -93,6 +96,8 @@ variables:
       # use {} instead of [] as array brackets
       "[": "{"
       "]": "}"
+
+
 requests:
   - request:
       method: POST
