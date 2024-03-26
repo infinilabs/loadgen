@@ -1,28 +1,7 @@
 env:
   ES_USERNAME: username
   ES_PASSWORD: password
-  ES_ENDPOINT: http://localhost:8000
-  # Set up envrionments to run test suite
-  LR_TEST_DIR: ./testing # The path to the test cases.
-  # If you want to start gateway dynamically and automatically:
-  LR_GATEWAY_CMD: ./bin/gateway # The path to the executable of INFINI Gateway
-  LR_GATEWAY_HOST: 0.0.0.0:18000 # The binding host of the INFINI Gateway
-  LR_GATEWAY_API_HOST: 0.0.0.0:19000 # The binding host of the INFINI Gateway API server
-  # Set up other envrionments for the gateway and loadgen
-  LR_ELASTICSEARCH_ENDPOINT: http://localhost:19201
-  CUSTOM_ENV: myenv
-
-#tests:
-#  # The relative path of test cases under `LR_TEST_DIR`
-#  #
-#  # - gateway.yml: (Optional) the configuration to start the INFINI Gateway dynamically.
-#  # - loadgen.dsl: the configuration to run the loadgen tool.
-#  #
-#  # The environments set in `env` section will be passed to the INFINI Gateway and loadgen.
-#  - path: cases/gateway/echo/echo_with_context
-
-# The old format for defining tests. You also can use loadgen.dsl for a
-# simplified syntax.
+  ES_ENDPOINT: http://localhost:9200
 
 runner:
   # total_rounds: 1
@@ -38,15 +17,15 @@ runner:
   # Whether to reset the context, including variables, runtime KV pairs, etc.,
   # before this test run.
   reset_context: false
-  default_endpoint: http://localhost:8000
+  default_endpoint: $[[env.ES_ENDPOINT]]
 
 variables:
-  - name: ip
-    type: file
-    path: dict/ip.txt
-    replace: # replace special characters in the value
-      '"': '\"'
-      '\': '\\'
+#  - name: ip
+#    type: file
+#    path: dict/ip.txt
+#    replace: # replace special characters in the value
+#      '"': '\"'
+#      '\': '\\'
   - name: id
     type: sequence
   - name: id64
@@ -97,9 +76,21 @@ variables:
       "[": "{"
       "]": "}"
 
-
 requests:
-  - request:
+  - request: #prepare some docs
+      method: POST
+      runtime_variables:
+        batch_no: uuid
+      runtime_body_line_variables:
+        routing_no: uuid
+      basic_auth:
+        username: $[[env.ES_USERNAME]]
+        password: $[[env.ES_PASSWORD]]
+      url: /_bulk
+      body: |
+        {"index": {"_index": "medcl", "_type": "_doc", "_id": "$[[uuid]]"}}
+        {"id": "$[[id]]", "field1": "$[[list]]", "now_local": "$[[now_local]]", "now_unix": "$[[now_unix]]"}
+  - request: #search this index
       method: POST
       runtime_variables:
         batch_no: uuid
@@ -111,3 +102,4 @@ requests:
       url: /medcl/_search
       body: |
         { "track_total_hits": true, "size": 0, "query": { "terms": { "patent_id": [ $[[id_list]] ] } } }
+  #add more requests
