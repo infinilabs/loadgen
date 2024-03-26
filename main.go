@@ -40,9 +40,9 @@ var readTimeout int = 0
 var writeTimeout int = 0
 var dialTimeout int = 3
 var compress bool = false
-var loaderConfigPath string
+var mixed bool = false
+var dslFileToRun string
 var statsAggregator chan *LoadStats
-var gatewayLogLevel string
 
 func init() {
 	flag.IntVar(&goroutines, "c", 1, "Number of concurrent threads")
@@ -54,8 +54,8 @@ func init() {
 	flag.IntVar(&writeTimeout, "write-timeout", 0, "Connection write timeout in seconds, default 0s (use -timeout)")
 	flag.IntVar(&dialTimeout, "dial-timeout", 3, "Connection dial timeout in seconds, default 3s")
 	flag.BoolVar(&compress, "compress", false, "Compress requests with gzip")
-	flag.StringVar(&loaderConfigPath, "run", "", "DSL config to run tests")
-	flag.StringVar(&gatewayLogLevel, "gateway-log", "debug", "Log level of Gateway")
+	flag.BoolVar(&mixed, "mixed", false, "Mixed requests from Yaml/DSL")
+	flag.StringVar(&dslFileToRun, "run", "", "DSL config to run tests")
 }
 
 func startLoader(cfg *LoaderConfig) *LoadStats {
@@ -281,7 +281,9 @@ func main() {
 			}
 		}
 
-		runnerConfig := RunnerConfig{}
+		runnerConfig := RunnerConfig{
+			ValidStatusCodesDuringWarmup: []int{},
+		}
 		ok, err = env.ParseConfig("runner", &runnerConfig)
 		if ok && err != nil {
 			if global.Env().SystemConfig.Configs.PanicOnConfigError {
@@ -299,24 +301,41 @@ func main() {
 		appConfig.Init()
 	}, func() {
 		go func() {
-			if len(appConfig.Tests) != 0 {
-				log.Infof("running test suite")
-				if !startRunner(&appConfig) {
-					os.Exit(1)
+			//dsl go first
+			if dslFileToRun != "" {
+				log.Debugf("running DSL based requests from %s", dslFileToRun)
+				if status := runDSL(&appConfig, dslFileToRun); status != 0 {
+					os.Exit(status)
+				}
+				if !mixed {
+					os.Exit(0)
+					return
 				}
 			}
+
 			if len(appConfig.Requests) != 0 {
-				log.Infof("running standalone test")
+				log.Debugf("running YAML based requests")
 				if status := runLoaderConfig(&appConfig.LoaderConfig); status != 0 {
 					os.Exit(status)
 				}
-			}
-			if loaderConfigPath != "" {
-				log.Infof("running standalone test from %s", loaderConfigPath)
-				if status := runDSL(loaderConfigPath); status != 0 {
-					os.Exit(status)
+				if !mixed {
+					os.Exit(0)
+					return
 				}
 			}
+
+			//test suit go last
+			if len(appConfig.Tests) != 0 {
+				log.Debugf("running test suite")
+				if !startRunner(&appConfig) {
+					os.Exit(1)
+				}
+				if !mixed {
+					os.Exit(0)
+					return
+				}
+			}
+
 			os.Exit(0)
 		}()
 
@@ -328,12 +347,16 @@ func main() {
 
 }
 
-func runDSL(path string) int {
+func runDSL(appConfig *AppConfig, path string) int {
 	var (
 		ok           bool
 		err          error
 		loaderConfig LoaderConfig
 	)
+
+	//use config from yaml
+	loaderConfig.RunnerConfig = appConfig.RunnerConfig
+	loaderConfig.Variable = appConfig.Variable
 
 	path = util.TryGetFileAbsPath(path, false)
 	input, err := env.LoadConfigContents(path)

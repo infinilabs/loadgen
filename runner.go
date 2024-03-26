@@ -139,7 +139,7 @@ func runTest(config *AppConfig, cwd string, test Test) (*TestResult, error) {
 		testResult.DurationInMs = int64(testResult.Time.Sub(startTime) / time.Millisecond)
 	}()
 
-	status := runDSL(loaderConfigPath)
+	status := runDSL(config,loaderConfigPath)
 	if status != 0 {
 		testResult.Failed = true
 	}
@@ -147,7 +147,7 @@ func runTest(config *AppConfig, cwd string, test Test) (*TestResult, error) {
 }
 
 func runGateway(ctx context.Context, gatewayPath, gatewayConfigPath, gatewayHost, gatewayApiHost string, env []string, gatewayOutput *bytes.Buffer) (*exec.Cmd, chan int, error) {
-	gatewayCmdArgs := []string{"-config", gatewayConfigPath, "-log", gatewayLogLevel}
+	gatewayCmdArgs := []string{"-config", gatewayConfigPath, "-log", "debug"}
 	log.Debugf("Executing gateway with args [%+v]", gatewayCmdArgs)
 	gatewayCmd := exec.CommandContext(ctx, gatewayPath, gatewayCmdArgs...)
 	gatewayCmd.Env = env

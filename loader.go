@@ -84,7 +84,7 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 
 var defaultHTTPPool = fasthttp.NewRequestResponsePool("default_http")
 
-func doRequest(globalCtx util.MapStr, item *RequestItem, result *RequestResult) (reqBody, respBody []byte, err error) {
+func doRequest(config *LoaderConfig,globalCtx util.MapStr, item *RequestItem, result *RequestResult) (reqBody, respBody []byte, err error) {
 	result.Reset()
 
 	var resp *fasthttp.Response
@@ -95,7 +95,7 @@ func doRequest(globalCtx util.MapStr, item *RequestItem, result *RequestResult) 
 		req.ResetBody()
 		defer defaultHTTPPool.ReleaseRequest(req)
 		//replace url variable
-		item.prepareRequest(globalCtx, req)
+		item.prepareRequest(config,globalCtx, req)
 		resp = defaultHTTPPool.AcquireResponse()
 		resp.Reset()
 		resp.ResetBody()
@@ -115,6 +115,10 @@ func doRequest(globalCtx util.MapStr, item *RequestItem, result *RequestResult) 
 
 		reqBody = req.GetRawBody()
 		respBody = resp.GetRawBody()
+
+		if global.Env().IsDebug{
+			log.Debugf("final response code: %v, body: %s", resp.StatusCode(),string(respBody))
+		}
 
 		// skip verify
 		if err != nil {
@@ -230,7 +234,7 @@ func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int) {
 				}
 			}
 
-			reqBody, respBody, err := doRequest(globalCtx, &item, result)
+			reqBody, respBody, err := doRequest(config,globalCtx, &item, result)
 
 			if item.Request != nil && config.RunnerConfig.LogRequests || util.ContainsInAnyInt32Array(result.Status, config.RunnerConfig.LogStatusCodes) {
 				log.Infof("[%v] %v, %v - %v", item.Request.Method, item.Request.Url, item.Request.Headers, util.SubString(string(reqBody), 0, 512))
@@ -263,7 +267,10 @@ func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int) {
 					log.Errorf("#%d action, assertion failed, skiping subsequent requests", idx)
 				}
 				stats.NumInvalid++
-				break
+
+				if !config.RunnerConfig.ContinueOnAssertInvalid{
+					break //skip further requests when invalid requests found
+				}
 			}
 		}
 	}
@@ -272,7 +279,7 @@ END:
 	cfg.statsAggregator <- stats
 }
 
-func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Request) {
+func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Request) {
 	bodyBuffer := req.BodyBuffer()
 	var bodyWriter io.Writer = bodyBuffer
 	if v.Request.DisableHeaderNamesNormalizing {
@@ -313,22 +320,35 @@ func (v *RequestItem) prepareRequest(globalCtx util.MapStr, req *fasthttp.Reques
 
 	//set default endpoint
 	parsedUrl := fasthttp.URI{}
-	parsedUrl.Parse(nil, []byte(url))
+	err:=parsedUrl.Parse(nil, []byte(url))
+	if err!=nil{
+		panic(err)
+	}
 	if parsedUrl.Host() == nil || len(parsedUrl.Host()) == 0 {
-		parsedUrl.SetSchemeBytes(v.Request.defaultEndpoint.Scheme())
-		parsedUrl.SetHostBytes(v.Request.defaultEndpoint.Host())
+		path,err:=config.RunnerConfig.parseDefaultEndpoint()
+		if err==nil{
+			parsedUrl.SetSchemeBytes(path.Scheme())
+			parsedUrl.SetHostBytes(path.Host())
+		}
 	}
 	url = parsedUrl.String()
 
 	req.SetRequestURI(url)
 
-	log.Debugf("final request url: %s", url)
+	if global.Env().IsDebug{
+		log.Debugf("final request url: %v %s", v.Request.Method,url)
+	}
 
 	//prepare method
 	req.Header.SetMethod(v.Request.Method)
 
-	if v.Request.BasicAuth.Username != "" {
+	if v.Request.BasicAuth!=nil && v.Request.BasicAuth.Username != "" {
 		req.SetBasicAuth(v.Request.BasicAuth.Username, v.Request.BasicAuth.Password)
+	}else{
+		//try use default auth
+		if config.RunnerConfig.DefaultBasicAuth!=nil&&config.RunnerConfig.DefaultBasicAuth.Username!=""{
+			req.SetBasicAuth(config.RunnerConfig.DefaultBasicAuth.Username, config.RunnerConfig.DefaultBasicAuth.Password)
+		}
 	}
 
 	if len(v.Request.Headers) > 0 {
@@ -388,11 +408,18 @@ func (cfg *LoadGenerator) Warmup(config *LoaderConfig) int {
 	reqCount := 0
 	for _, v := range config.Requests {
 
-		reqBody, respBody, err := doRequest(globalCtx, &v, result)
+		reqBody, respBody, err := doRequest(config,globalCtx, &v, result)
 		reqCount += 1
 
 		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url, util.SubString(string(reqBody), 0, 512))
 		log.Infof("status: %v, error: %v, response: %v", result.Status, err, util.SubString(string(respBody), 0, 512))
+
+		if len(config.RunnerConfig.ValidStatusCodesDuringWarmup)>0{
+			if util.ContainsInAnyInt32Array(result.Status,config.RunnerConfig.ValidStatusCodesDuringWarmup){
+				continue
+			}
+		}
+
 		if result.Status >= 400 || result.Status == 0 || err != nil {
 			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")
 			reader := bufio.NewReader(os.Stdin)

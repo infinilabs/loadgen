@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"infini.sh/framework/core/model"
 	"math/rand"
 	"path/filepath"
 	"strings"
@@ -39,17 +40,13 @@ type Request struct {
 	Body             string              `config:"body"`
 	RepeatBodyNTimes int                 `config:"body_repeat_times"`
 	Headers          []map[string]string `config:"headers"`
-	BasicAuth        struct {
-		Username string `config:"username"`
-		Password string `config:"password"`
-	} `config:"basic_auth"`
+	BasicAuth        *model.BasicAuth    `config:"basic_auth"`
+
 	// Disable fasthttp client's header names normalizing, preserve original header key, for requests
 	DisableHeaderNamesNormalizing bool `config:"disable_header_names_normalizing"`
 
 	RuntimeVariables         map[string]string `config:"runtime_variables"`
 	RuntimeBodyLineVariables map[string]string `config:"runtime_body_line_variables"`
-
-	defaultEndpoint *fasthttp.URI
 
 	urlHasTemplate  bool
 	bodyHasTemplate bool
@@ -88,20 +85,6 @@ type Variable struct {
 }
 
 type AppConfig struct {
-	/*
-		Required environments:
-		- LR_ELASTICSEARCH_ENDPOINT // ES server endpoint
-		- LR_GATEWAY_HOST // Gateway server host
-		- LR_GATEWAY_CMD // The command to start gateway server
-		Optional environments:
-		- LR_TEST_DIR    // The root directory of all test cases, will automatically convert to absolute path. Default: ./testing
-		- LR_GATEWAY_API_HOST // Gateway server api binding host
-		- LR_MINIO_API_HOST // minio server host
-		- LR_MINIO_API_USERNAME // minio server username
-		- LR_MINIO_API_PASSWORD // minio server password
-		- LR_MINIO_TEST_BUCKET // minio testing bucket, need to set as public access
-		- LR_GATEWAY_FLOATING_IP_HOST // Gateway server floating IP host
-	*/
 	Environments map[string]string `config:"env"`
 	Tests        []Test            `config:"tests"`
 	LoaderConfig
@@ -119,8 +102,14 @@ type RunnerConfig struct {
 	TotalRounds int `config:"total_rounds"`
 	// Skip warming up round
 	NoWarm bool `config:"no_warm"`
+
+	ValidStatusCodesDuringWarmup []int `config:"valid_status_codes_during_warmup"`
+
 	// Exit(1) if any assert failed
 	AssertInvalid bool `config:"assert_invalid"`
+
+	ContinueOnAssertInvalid bool `config:"continue_on_assert_invalid"`
+
 	// Exit(2) if any error occurred
 	AssertError bool `config:"assert_error"`
 	// Print the request sent to server
@@ -129,11 +118,32 @@ type RunnerConfig struct {
 	LogStatusCodes []int `config:"log_status_codes"`
 	// Disable fasthttp client's header names normalizing, preserve original header key, for responses
 	DisableHeaderNamesNormalizing bool `config:"disable_header_names_normalizing"`
-	// Default endpoint if not specified in a request
-	DefaultEndpoint string `config:"default_endpoint"`
+
 	// Whether to reset the context, including variables, runtime KV pairs, etc.,
 	// before this test run.
 	ResetContext bool `config:"reset_context"`
+
+	// Default endpoint if not specified in a request
+	DefaultEndpoint  string           `config:"default_endpoint"`
+	DefaultBasicAuth *model.BasicAuth `config:"default_basic_auth"`
+	defaultEndpoint  *fasthttp.URI
+}
+
+func (config *RunnerConfig) parseDefaultEndpoint() (*fasthttp.URI, error) {
+	if config.DefaultEndpoint != "" {
+		config.defaultEndpoint = &fasthttp.URI{}
+		err := config.defaultEndpoint.Parse(nil, []byte(config.DefaultEndpoint))
+		if err != nil {
+			return nil, err
+		}
+		return config.defaultEndpoint, err
+	}
+
+	if config.defaultEndpoint != nil {
+		return config.defaultEndpoint, nil
+	}
+
+	return config.defaultEndpoint, errors.New("no valid default endpoint")
 }
 
 /*
@@ -225,17 +235,12 @@ func (config *LoaderConfig) Init() error {
 		variables[i.Name] = i
 	}
 
-	defaultEndpoint := fasthttp.URI{}
-	defaultEndpoint.Parse(nil, []byte(config.RunnerConfig.DefaultEndpoint))
-
 	var err error
 	for _, v := range config.Requests {
 		if v.Request == nil {
 			continue
 		}
-		v.Request.defaultEndpoint = &defaultEndpoint
 		v.Request.headerTemplates = map[string]*fasttemplate.Template{}
-
 		if util.ContainStr(v.Request.Url, "$[[") {
 			v.Request.urlHasTemplate = true
 			v.Request.urlTemplate, err = fasttemplate.NewTemplate(v.Request.Url, "$[[", "]]")
@@ -404,6 +409,8 @@ type RequestItem struct {
 	Sleep     *SleepAction       `config:"sleep"`
 	// Populate global context with `_ctx` values
 	Register []map[string]string `config:"register"`
+
+	config *RunnerConfig
 }
 
 type SleepAction struct {
