@@ -1,6 +1,9 @@
+# // How to use DSL to simplify requests, requests defined in loadgen.yml will be skipped in this mode
+# // $ES_ENDPOINT=https://localhost:9200 ES_USERNAME=admin  ES_PASSWORD=b14612393da0d4e7a70b ./bin/loadgen -run loadgen.dsl
+
 # runner: {
-#   // total_rounds: 1
-#   no_warm: false,
+#   total_rounds: 1,
+#   no_warm: true,
 #   // Whether to log all requests
 #   log_requests: false,
 #   // Whether to log all requests with the specified response status
@@ -10,7 +13,11 @@
 #   // Whether to reset the context, including variables, runtime KV pairs,
 #   // etc., before this test run.
 #   reset_context: false,
-#   default_endpoint: "http://localhost:8000",
+#   default_endpoint: "$[[env.ES_ENDPOINT]]",
+#   default_basic_auth: {
+#     username: "$[[env.ES_USERNAME]]",
+#     password: "$[[env.ES_PASSWORD]]",
+#   }
 # },
 # variables: [
 #   {
@@ -110,11 +117,3 @@ POST /medcl/_doc/1
 
 POST /medcl/_search
 { "track_total_hits": true, "size": 0, "query": { "terms": { "patent_id": [ $[[id_list]] ] } } }
-# request: {
-#   runtime_variables: {batch_no: "uuid"},
-#   runtime_body_line_variables: {routing_no: "uuid"},
-#   basic_auth: {
-#     username: "$[[env.ES_USERNAME]]",
-#     password: "$[[env.ES_PASSWORD]]",
-#   },
-# },

@@ -1,11 +1,15 @@
+## How to use loadgen?
+##  $ES_ENDPOINT=https://localhost:9200 ES_USERNAME=admin  ES_PASSWORD=b14612393da0d4e7a70b ./bin/loadgen -config loadgen.yml
+
 env:
   ES_USERNAME: username
   ES_PASSWORD: password
   ES_ENDPOINT: http://localhost:9200
 
 runner:
-  # total_rounds: 1
-  no_warm: false
+#  total_rounds: 1
+  no_warm: true
+  valid_status_codes_during_warmup: [ 200,201,404 ]
   # Whether to log all requests
   log_requests: false
   # Whether to log all requests with the specified response status
@@ -18,6 +22,9 @@ runner:
   # before this test run.
   reset_context: false
   default_endpoint: $[[env.ES_ENDPOINT]]
+  default_basic_auth:
+    username: $[[env.ES_USERNAME]]
+    password: $[[env.ES_PASSWORD]]
 
 variables:
 #  - name: ip
@@ -83,12 +90,11 @@ requests:
         batch_no: uuid
       runtime_body_line_variables:
         routing_no: uuid
-      basic_auth:
-        username: $[[env.ES_USERNAME]]
-        password: $[[env.ES_PASSWORD]]
       url: /_bulk
       body: |
         {"index": {"_index": "medcl", "_type": "_doc", "_id": "$[[uuid]]"}}
+        {"id": "$[[id]]", "field1": "$[[list]]", "now_local": "$[[now_local]]", "now_unix": "$[[now_unix]]"}
+        {"index": {"_index": "infinilabs", "_type": "_doc", "_id": "$[[uuid]]"}}
         {"id": "$[[id]]", "field1": "$[[list]]", "now_local": "$[[now_local]]", "now_unix": "$[[now_unix]]"}
   - request: #search this index
       method: POST
@@ -96,10 +102,11 @@ requests:
         batch_no: uuid
       runtime_body_line_variables:
         routing_no: uuid
-      basic_auth:
+      basic_auth: #override default auth
         username: $[[env.ES_USERNAME]]
         password: $[[env.ES_PASSWORD]]
-      url: /medcl/_search
+      url: $[[env.ES_ENDPOINT]]/medcl/_search #override with full request url
       body: |
         { "track_total_hits": true, "size": 0, "query": { "terms": { "patent_id": [ $[[id_list]] ] } } }
+
   #add more requests
