@@ -139,7 +139,7 @@ func runTest(config *AppConfig, cwd string, test Test) (*TestResult, error) {
 		testResult.DurationInMs = int64(testResult.Time.Sub(startTime) / time.Millisecond)
 	}()
 
-	status := runDSL(config,loaderConfigPath)
+	status := runDSLFile(config, loaderConfigPath)
 	if status != 0 {
 		testResult.Failed = true
 	}

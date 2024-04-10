@@ -347,20 +347,10 @@ func main() {
 
 }
 
-func runDSL(appConfig *AppConfig, path string) int {
-	var (
-		ok           bool
-		err          error
-		loaderConfig LoaderConfig
-	)
-
-	//use config from yaml
-	loaderConfig.RunnerConfig = appConfig.RunnerConfig
-	loaderConfig.Variable = appConfig.Variable
-
+func runDSLFile(appConfig *AppConfig, path string) int {
 	path = util.TryGetFileAbsPath(path, false)
-	input, err := env.LoadConfigContents(path)
-	if ok && err != nil {
+	dsl, err := env.LoadConfigContents(path)
+	if err != nil {
 		if global.Env().SystemConfig.Configs.PanicOnConfigError {
 			panic(err)
 		} else {
@@ -369,32 +359,15 @@ func runDSL(appConfig *AppConfig, path string) int {
 	}
 	log.Infof("loading config: %s", path)
 
-	output, err := loadPlugins([][]byte{loadgenDSL}, input)
-	if err != nil {
-		if global.Env().SystemConfig.Configs.PanicOnConfigError {
-			panic(err)
-		} else {
-			log.Error(err)
-		}
-	}
-	log.Debugf("using config:\n%s", output)
+	return runDSL(appConfig, dsl)
+}
 
-	outputParser, err := coreConfig.NewConfigWithYAML([]byte(output), "loadgen-dsl")
-	if err != nil {
-		if global.Env().SystemConfig.Configs.PanicOnConfigError {
-			panic(err)
-		} else {
-			log.Error(err)
-		}
-	}
+func runDSL(appConfig *AppConfig, dsl string) int {
+	loaderConfig := parseDSL(dsl)
 
-	if err := outputParser.Unpack(&loaderConfig); err != nil {
-		if global.Env().SystemConfig.Configs.PanicOnConfigError {
-			panic(err)
-		} else {
-			log.Error(err)
-		}
-	}
+	//use config from yaml
+	loaderConfig.RunnerConfig = appConfig.RunnerConfig
+	loaderConfig.Variable = appConfig.Variable
 
 	return runLoaderConfig(&loaderConfig)
 }
@@ -416,6 +389,38 @@ func runLoaderConfig(config *LoaderConfig) int {
 	}
 
 	return 0
+}
+
+// parseDSL parses a DSL string to LoaderConfig.
+func parseDSL(input string) (output LoaderConfig) {
+	outputStr, err := loadPlugins([][]byte{loadgenDSL}, input)
+	if err != nil {
+		if global.Env().SystemConfig.Configs.PanicOnConfigError {
+			panic(err)
+		} else {
+			log.Error(err)
+		}
+	}
+	log.Debugf("using config:\n%s", outputStr)
+
+	outputParser, err := coreConfig.NewConfigWithYAML([]byte(outputStr), "loadgen-dsl")
+	if err != nil {
+		if global.Env().SystemConfig.Configs.PanicOnConfigError {
+			panic(err)
+		} else {
+			log.Error(err)
+		}
+	}
+
+	if err := outputParser.Unpack(&output); err != nil {
+		if global.Env().SystemConfig.Configs.PanicOnConfigError {
+			panic(err)
+		} else {
+			log.Error(err)
+		}
+	}
+
+	return
 }
 
 func loadPlugins(plugins [][]byte, input string) (output string, err error) {
@@ -445,7 +450,8 @@ func callPlugin(ctx context.Context, mod wasmAPI.Module, input string) (output s
 	free := mod.ExportedFunction("deallocate")
 	process := mod.ExportedFunction("process")
 
-	// write input
+	// 1) Plugins do not have access to host memory, so the first step is to copy
+	//    the input string to the WASM VM.
 	inputSize := uint32(len(input))
 	ret, err := alloc.Call(ctx, uint64(inputSize))
 	if err != nil {
@@ -456,15 +462,9 @@ func callPlugin(ctx context.Context, mod wasmAPI.Module, input string) (output s
 	_, inputAddr, _ := decodePtr(inputPtr)
 	mod.Memory().Write(inputAddr, []byte(input))
 
-	// prepare memory for results
-	ret, err = alloc.Call(ctx, uint64(4))
-	if err != nil {
-		return
-	}
-	errorPtr := ret[0]
-	defer free.Call(ctx, errorPtr)
-
-	// compile input
+	// 2) Invoke the `process` function to handle the input string, which returns
+	//    a result pointer (referred to as `decodePtr` in the following text)
+	//    representing the processing result.
 	ret, err = process.Call(ctx, inputPtr)
 	if err != nil {
 		return
@@ -472,7 +472,7 @@ func callPlugin(ctx context.Context, mod wasmAPI.Module, input string) (output s
 	outputPtr := ret[0]
 	defer free.Call(ctx, outputPtr)
 
-	// read output
+	// 3) Check the processing result.
 	errors, outputAddr, outputSize := decodePtr(outputPtr)
 	bytes, _ := mod.Memory().Read(outputAddr, outputSize)
 
@@ -484,6 +484,13 @@ func callPlugin(ctx context.Context, mod wasmAPI.Module, input string) (output s
 	return
 }
 
+// decodePtr decodes error state and memory address of a result pointer.
+//
+// Some functions may return success or failure as a result. In such cases, a
+// special 64-bit pointer is returned. The highest bit in the upper 32 bits
+// serves as a boolean value indicating success (1) or failure (0), while the
+// remaining 31 bits represent the length of the message. The lower 32 bits of
+// the pointer represent the memory address of the specific message.
 func decodePtr(ptr uint64) (errors bool, addr, size uint32) {
 	const SIZE_MASK uint32 = (^uint32(0)) >> 1
 	addr = uint32(ptr)
