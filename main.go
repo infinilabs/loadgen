@@ -304,7 +304,7 @@ func main() {
 			//dsl go first
 			if dslFileToRun != "" {
 				log.Debugf("running DSL based requests from %s", dslFileToRun)
-				if status := runDSL(&appConfig, dslFileToRun); status != 0 {
+				if status := runDSLFile(&appConfig, dslFileToRun); status != 0 {
 					os.Exit(status)
 				}
 				if !mixed {
@@ -441,6 +441,8 @@ func loadPlugins(plugins [][]byte, input string) (output string, err error) {
 		if err != nil {
 			break
 		}
+		// pipe output
+		input = output
 	}
 	return
 }
