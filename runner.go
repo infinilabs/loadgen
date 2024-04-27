@@ -87,7 +87,7 @@ func runTest(config *AppConfig, cwd string, test Test) (*TestResult, error) {
 		return nil, err
 	}
 
-	testPath := path.Join(config.Environments[env_LR_TEST_DIR], test.Path)
+	testPath := test.Path
 	var gatewayPath string
 	if config.Environments[env_LR_GATEWAY_CMD] != "" {
 		gatewayPath, _ = filepath.Abs(config.Environments[env_LR_GATEWAY_CMD])

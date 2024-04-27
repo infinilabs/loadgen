@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"infini.sh/framework/core/model"
 	"math/rand"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -159,9 +158,6 @@ type Test struct {
 }
 
 const (
-	// Required configurations
-	env_LR_TEST_DIR = "LR_TEST_DIR"
-
 	// Gateway-related configurations
 	env_LR_GATEWAY_CMD      = "LR_GATEWAY_CMD"
 	env_LR_GATEWAY_HOST     = "LR_GATEWAY_HOST"
@@ -174,12 +170,7 @@ var (
 )
 
 func (config *AppConfig) Init() {
-	fullTestDir, err := filepath.Abs(config.Environments[env_LR_TEST_DIR])
-	if err != nil {
-		log.Warnf("failed to get the abs path of test_dir, error: %+v", err)
-	} else {
-		config.Environments[env_LR_TEST_DIR] = fullTestDir
-	}
+
 }
 
 func (config *AppConfig) testEnv(envVars ...string) bool {
