@@ -348,6 +348,7 @@ func main() {
 }
 
 func runDSLFile(appConfig *AppConfig, path string) int {
+
 	path = util.TryGetFileAbsPath(path, false)
 	dsl, err := env.LoadConfigContents(path)
 	if err != nil {
@@ -363,12 +364,7 @@ func runDSLFile(appConfig *AppConfig, path string) int {
 }
 
 func runDSL(appConfig *AppConfig, dsl string) int {
-	loaderConfig := parseDSL(dsl)
-
-	//use config from yaml
-	loaderConfig.RunnerConfig = appConfig.RunnerConfig
-	loaderConfig.Variable = appConfig.Variable
-
+	loaderConfig := parseDSL(appConfig,dsl)
 	return runLoaderConfig(&loaderConfig)
 }
 
@@ -392,7 +388,11 @@ func runLoaderConfig(config *LoaderConfig) int {
 }
 
 // parseDSL parses a DSL string to LoaderConfig.
-func parseDSL(input string) (output LoaderConfig) {
+func parseDSL(appConfig *AppConfig,input string) (output LoaderConfig) {
+	output= LoaderConfig{}
+	output.RunnerConfig=appConfig.RunnerConfig
+	output.Variable=appConfig.Variable
+
 	outputStr, err := loadPlugins([][]byte{loadgenDSL}, input)
 	if err != nil {
 		if global.Env().SystemConfig.Configs.PanicOnConfigError {
