@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"infini.sh/framework/core/global"
 	"net"
 	"os"
 	"os/exec"
@@ -83,9 +84,9 @@ func runTest(config *AppConfig, cwd string, test Test) (*TestResult, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := os.Chdir(cwd); err != nil {
-		return nil, err
-	}
+	//if err := os.Chdir(cwd); err != nil {
+	//	return nil, err
+	//}
 
 	testPath := test.Path
 	var gatewayPath string
@@ -94,13 +95,26 @@ func runTest(config *AppConfig, cwd string, test Test) (*TestResult, error) {
 	}
 
 	loaderConfigPath := path.Join(testPath, "loadgen.dsl")
-
-	log.Debugf("Executing gateway within %s", testPath)
-	if err := os.Chdir(testPath); err != nil {
-		return nil, err
+	//auto resolve the loaderConfigPath
+	if !util.FileExists(loaderConfigPath){
+		temp:=path.Join(filepath.Dir(global.Env().GetConfigFile()),loaderConfigPath)
+		if util.FileExists(temp){
+			loaderConfigPath=temp
+		}else{
+			temp:=path.Join(filepath.Dir(global.Env().GetConfigDir()),loaderConfigPath)
+			if util.FileExists(temp){
+				loaderConfigPath=temp
+			}
+		}
 	}
-	// Revert cwd change
-	defer os.Chdir(cwd)
+	loaderConfigPath,_=filepath.Abs(loaderConfigPath)
+
+	//log.Debugf("Executing gateway within %s", testPath)
+	//if err := os.Chdir(filepath.Dir(loaderConfigPath)); err != nil {
+	//	return nil, err
+	//}
+	//// Revert cwd change
+	//defer os.Chdir(cwd)
 
 	env := generateEnv(config)
 	log.Debugf("Executing gateway with environment [%+v]", env)
