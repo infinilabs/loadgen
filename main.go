@@ -10,6 +10,7 @@ import (
 	E "errors"
 	"flag"
 	"fmt"
+	"github.com/jamiealquiza/tachymeter"
 	"os"
 	"os/signal"
 	"strings"
@@ -31,7 +32,7 @@ import (
 //go:embed plugins/loadgen_dsl.wasm
 var loadgenDSL []byte
 
-var duration int = 10
+var maxDuration int = 10
 var goroutines int = 2
 var rateLimit int = -1
 var reqLimit int = -1
@@ -46,10 +47,10 @@ var statsAggregator chan *LoadStats
 
 func init() {
 	flag.IntVar(&goroutines, "c", 1, "Number of concurrent threads")
-	flag.IntVar(&duration, "d", 5, "Duration of tests in seconds")
+	flag.IntVar(&maxDuration, "d", 5, "Duration of tests in seconds")
 	flag.IntVar(&rateLimit, "r", -1, "Max requests per second (fixed QPS)")
 	flag.IntVar(&reqLimit, "l", -1, "Limit total requests")
-	flag.IntVar(&timeout, "timeout", 60, "Request timeout in seconds, default 60s")
+	flag.IntVar(&timeout, "timeout", 0, "Request timeout in seconds, default 0s")
 	flag.IntVar(&readTimeout, "read-timeout", 0, "Connection read timeout in seconds, default 0s (use -timeout)")
 	flag.IntVar(&writeTimeout, "write-timeout", 0, "Connection write timeout in seconds, default 0s (use -timeout)")
 	flag.IntVar(&dialTimeout, "dial-timeout", 3, "Connection dial timeout in seconds, default 3s")
@@ -68,7 +69,14 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 
 	flag.Parse()
 
-	loadGen := NewLoadGenerator(duration, goroutines, statsAggregator, cfg.RunnerConfig.DisableHeaderNamesNormalizing)
+	if cfg.RunnerConfig.MetricSampleSize<=0{
+		cfg.RunnerConfig.MetricSampleSize=10000
+	}
+
+	// Initialize tachymeter.
+	timer := tachymeter.New(&tachymeter.Config{Size: cfg.RunnerConfig.MetricSampleSize})
+
+	loadGen := NewLoadGenerator(maxDuration, goroutines, statsAggregator, cfg.RunnerConfig.DisableHeaderNamesNormalizing)
 
 	leftDoc := reqLimit
 
@@ -91,6 +99,9 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 		reqPerGoroutines = int((leftDoc + 1) / goroutines)
 	}
 
+	// Start wall time for all Goroutines.
+	wallTimeStart := time.Now()
+
 	for i := 0; i < goroutines; i++ {
 		thisDoc := -1
 		if reqPerGoroutines > 0 {
@@ -102,11 +113,11 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 			leftDoc -= thisDoc
 		}
 
-		go loadGen.Run(cfg, thisDoc)
+		go loadGen.Run(cfg, thisDoc,timer)
 	}
 
 	responders := 0
-	aggStats := LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
+	aggStats := LoadStats{MinRequestTime: time.Millisecond, StatusCode: map[int]int{}}
 
 	for responders < goroutines {
 		select {
@@ -139,12 +150,16 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 		return nil
 	}
 
+	finalDuration:=time.Since(wallTimeStart)
+
+	// When finished, set elapsed wall time.
+	timer.SetWallTime(finalDuration)
+
 	avgThreadDur := aggStats.TotDuration / time.Duration(responders) //need to average the aggregated duration
 
-	roughReqRate := float64(aggStats.NumRequests) / float64(duration)
-	roughReqBytesRate := float64(aggStats.TotReqSize) / float64(duration)
-	roughBytesRate := float64(aggStats.TotRespSize+aggStats.TotReqSize) / float64(duration)
-	roughAvgReqTime := (time.Duration(duration) * time.Second) / time.Duration(aggStats.NumRequests)
+	roughReqRate := float64(aggStats.NumRequests) / float64(finalDuration.Seconds())
+	roughReqBytesRate := float64(aggStats.TotReqSize) / float64(finalDuration.Seconds())
+	roughBytesRate := float64(aggStats.TotRespSize+aggStats.TotReqSize) / float64(finalDuration.Seconds())
 
 	reqRate := float64(aggStats.NumRequests) / avgThreadDur.Seconds()
 	avgReqTime := aggStats.TotDuration / time.Duration(aggStats.NumRequests)
@@ -153,26 +168,53 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 	// Flush before printing stats to avoid logging mixing with stats
 	log.Flush()
 
-	fmt.Printf("\n%v requests in %v, %v sent, %v received\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize)}, util.ByteValue{float64(aggStats.TotRespSize)})
+	if cfg.RunnerConfig.NoSizeStats{
+		fmt.Printf("\n%v requests finished in %v\n", aggStats.NumRequests, avgThreadDur)
+	}else{
+		fmt.Printf("\n%v requests finished in %v, %v sent, %v received\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize)}, util.ByteValue{float64(aggStats.TotRespSize)})
+	}
 
 	fmt.Println("\n[Loadgen Client Metrics]")
-	fmt.Printf("Requests/sec:\t\t%.2f\n"+
-		"Request Traffic/sec:\t%v\n"+
-		"Total Transfer/sec:\t%v\n"+
-		"Avg Req Time:\t\t%v\n",
-		roughReqRate,
-		util.ByteValue{roughReqBytesRate},
-		util.ByteValue{roughBytesRate},
-		roughAvgReqTime)
+
+	fmt.Printf("Requests/sec:\t\t%.2f\n",roughReqRate)
+
+	if !cfg.RunnerConfig.BenchmarkOnly&& !cfg.RunnerConfig.NoSizeStats {
+		fmt.Printf(
+			"Request Traffic/sec:\t%v\n"+
+			"Total Transfer/sec:\t%v\n",
+			util.ByteValue{roughReqBytesRate},
+			util.ByteValue{roughBytesRate})
+	}
+
+
 	fmt.Printf("Fastest Request:\t%v\n", aggStats.MinRequestTime)
 	fmt.Printf("Slowest Request:\t%v\n", aggStats.MaxRequestTime)
-	fmt.Printf("Number of Errors:\t%v\n", aggStats.NumErrs)
-	fmt.Printf("Number of Invalid:\t%v\n", aggStats.NumInvalid)
+
+	if cfg.RunnerConfig.AssertError{
+		fmt.Printf("Number of Errors:\t%v\n", aggStats.NumErrs)
+	}
+
+	if cfg.RunnerConfig.AssertInvalid{
+		fmt.Printf("Number of Invalid:\t%v\n", aggStats.NumInvalid)
+	}
+
 	for k, v := range aggStats.StatusCode {
 		fmt.Printf("Status %v:\t\t%v\n", k, v)
 	}
 
-	fmt.Printf("\n[Estimated Server Metrics]\nRequests/sec:\t\t%.2f\nTransfer/sec:\t\t%v\nAvg Req Time:\t\t%v\n", reqRate, util.ByteValue{bytesRate}, avgReqTime)
+	if !cfg.RunnerConfig.BenchmarkOnly&& !cfg.RunnerConfig.NoStats{
+		// Rate outputs will be accurate.
+		fmt.Println("\n[Latency Metrics]")
+		fmt.Println(timer.Calc().String())
+
+		fmt.Println("\n[Latency Distribution]")
+		fmt.Println(timer.Calc().Histogram.String(30))
+	}
+
+	fmt.Printf("\n[Estimated Server Metrics]\nRequests/sec:\t\t%.2f\nAvg Req Time:\t\t%v\n", reqRate,  avgReqTime)
+	if  !cfg.RunnerConfig.BenchmarkOnly&& !cfg.RunnerConfig.NoSizeStats {
+		fmt.Printf("Transfer/sec:\t\t%v\n",  util.ByteValue{bytesRate})
+	}
 
 	fmt.Println("")
 

@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
+	"github.com/jamiealquiza/tachymeter"
 	"io"
 	"net"
 	"os"
@@ -66,16 +67,24 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 	}
 
 	httpClient = fasthttp.Client{
-		ReadTimeout:                   time.Second * time.Duration(readTimeout),
-		WriteTimeout:                  time.Second * time.Duration(writeTimeout),
 		MaxConnsPerHost:               goroutines,
+		//MaxConns: goroutines,
 		NoDefaultUserAgentHeader:      false,
 		DisableHeaderNamesNormalizing: disableHeaderNamesNormalizing,
-		Dial: func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(addr, time.Duration(dialTimeout)*time.Second)
-		},
 		Name:      global.Env().GetAppLowercaseName() + "/" + global.Env().GetVersion() + "/" + global.Env().GetBuildNumber(),
 		TLSConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	if readTimeout>0{
+		httpClient.ReadTimeout= time.Second * time.Duration(readTimeout)
+	}
+	if writeTimeout>0{
+		httpClient.WriteTimeout= time.Second * time.Duration(writeTimeout)
+	}
+	if dialTimeout>0{
+		httpClient.Dial=func(addr string) (net.Conn, error) {
+			return fasthttp.DialTimeout(addr, time.Duration(dialTimeout)*time.Second)
+		}
 	}
 
 	rt = &LoadGenerator{duration, goroutines, statsAggregator, 0}
@@ -84,93 +93,138 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 
 var defaultHTTPPool = fasthttp.NewRequestResponsePool("default_http")
 
-func doRequest(config *LoaderConfig,globalCtx util.MapStr, item *RequestItem, result *RequestResult) (reqBody, respBody []byte, err error) {
-	result.Reset()
 
-	var resp *fasthttp.Response
+
+func doRequest(config *LoaderConfig,globalCtx util.MapStr,req *fasthttp.Request,resp *fasthttp.Response, item *RequestItem, loadStats *LoadStats,timer *tachymeter.Tachymeter) (continueNext bool,err error) {
 
 	if item.Request != nil {
-		req := defaultHTTPPool.AcquireRequest()
-		req.Reset()
-		req.ResetBody()
-		defer defaultHTTPPool.ReleaseRequest(req)
-		//replace url variable
-		item.prepareRequest(config,globalCtx, req)
-		resp = defaultHTTPPool.AcquireResponse()
-		resp.Reset()
-		resp.ResetBody()
-		defer defaultHTTPPool.ReleaseResponse(resp)
 
-		start := time.Now()
-		err = httpClient.DoTimeout(req, resp, time.Duration(timeout)*time.Second)
-		result.Duration = time.Since(start)
-		result.Status = resp.StatusCode()
 
-		stats.Timing("request", "duration", result.Duration.Milliseconds())
-		stats.Increment("request", "total")
-		stats.Increment("request", strconv.Itoa(resp.StatusCode()))
-
-		result.RequestSize = req.GetRequestLength()
-		result.ResponseSize = resp.GetResponseLength()
-
-		reqBody = req.GetRawBody()
-		respBody = resp.GetRawBody()
-
-		if global.Env().IsDebug{
-			log.Debugf("final response code: %v, body: %s", resp.StatusCode(),string(respBody))
+		if item.Request.ExecuteRepeatTimes<1{
+			item.Request.ExecuteRepeatTimes=1
 		}
 
-		// skip verify
-		if err != nil {
-			result.Error = true
-			if item.Assert != nil {
-				result.Invalid = true
+		for i:=0;i<item.Request.ExecuteRepeatTimes;i++{
+			resp.Reset()
+			resp.ResetBody()
+			start := time.Now()
+
+			if global.Env().IsDebug{
+				log.Info(req.String())
 			}
-			return
-		}
-	}
 
-	if item.Sleep != nil {
-		time.Sleep(time.Duration(item.Sleep.SleepInMilliSeconds) * time.Millisecond)
-	}
+			if timeout>0{
+				err = httpClient.DoTimeout(req, resp, time.Duration(timeout)*time.Second)
+			}else{
+				err = httpClient.Do(req, resp)
+			}
 
-	if item.Register != nil {
-		event := buildCtx(resp, respBody, result)
-		log.Debugf("registering %+v, event: %+v", item.Register, event)
-		for _, item := range item.Register {
-			for dest, src := range item {
-				val, valErr := event.GetValue(src)
-				if valErr != nil {
-					log.Errorf("failed to get value with key: %s", src)
+			duration:=time.Since(start)
+			statsCode:=resp.StatusCode()
+
+
+			if !config.RunnerConfig.BenchmarkOnly && timer!=nil{
+				timer.AddTime(duration)
+			}
+
+			if !config.RunnerConfig.NoStats {
+				if config.RunnerConfig.DurationInUs {
+					stats.Timing("request", "duration_in_us", duration.Microseconds())
+				} else {
+					stats.Timing("request", "duration", duration.Milliseconds())
 				}
-				log.Debugf("put globalCtx %+v, %+v", dest, val)
-				globalCtx.Put(dest, val)
-			}
-		}
-	}
 
-	if item.Assert != nil {
-		event := buildCtx(resp, respBody, result)
-		// Dump globalCtx into assert event
-		event.Update(globalCtx)
-		if len(respBody) < 4096 {
-			log.Debugf("assert _ctx: %+v", event)
-		}
-		condition, buildErr := conditions.NewCondition(item.Assert)
-		if buildErr != nil {
-			log.Errorf("failed to build conditions whilte assert existed, error: %+v", buildErr)
-			result.Invalid = true
-			return
-		}
-		if !condition.Check(event) {
-			result.Invalid = true
+				stats.Increment("request", "total")
+				stats.Increment("request", strconv.Itoa(resp.StatusCode()))
+
+				if err!=nil {
+					loadStats.NumErrs++
+					loadStats.NumInvalid ++
+				}
+
+				if !config.RunnerConfig.NoSizeStats{
+					loadStats.TotReqSize += int64(req.GetRequestLength()) //TODO inaccurate
+					loadStats.TotRespSize += int64(resp.GetResponseLength()) //TODO inaccurate
+				}
+
+				loadStats.NumRequests ++
+				loadStats.TotDuration+=duration
+				loadStats.MaxRequestTime = util.MaxDuration(duration, loadStats.MaxRequestTime)
+				loadStats.MinRequestTime = util.MinDuration(duration, loadStats.MinRequestTime)
+				loadStats.StatusCode[statsCode]+=1
+			}
+
+			if config.RunnerConfig.BenchmarkOnly {
+				return  true,err
+			}
+
+			if item.Register!=nil || item.Assert!=nil ||config.RunnerConfig.LogRequests{
+				//only use last request and response
+				reqBody := req.GetRawBody()
+				respBody := resp.GetRawBody()
+				if global.Env().IsDebug{
+					log.Debugf("final response code: %v, body: %s", resp.StatusCode(),string(respBody))
+				}
+
+				if item.Request != nil && config.RunnerConfig.LogRequests || util.ContainsInAnyInt32Array(statsCode, config.RunnerConfig.LogStatusCodes) {
+					log.Infof("[%v] %v, %v - %v", item.Request.Method, item.Request.Url, item.Request.Headers, util.SubString(string(reqBody), 0, 512))
+					log.Infof("status: %v, error: %v, response: %v", statsCode, err, util.SubString(string(respBody), 0, 512))
+				}
+
+				if err!=nil{
+					continue
+				}
+
+				event := buildCtx(resp, respBody, duration)
+				if item.Register != nil {
+					log.Debugf("registering %+v, event: %+v", item.Register, event)
+					for _, item := range item.Register {
+						for dest, src := range item {
+							val, valErr := event.GetValue(src)
+							if valErr != nil {
+								log.Errorf("failed to get value with key: %s", src)
+							}
+							log.Debugf("put globalCtx %+v, %+v", dest, val)
+							globalCtx.Put(dest, val)
+						}
+					}
+				}
+
+				if item.Assert != nil {
+					// Dump globalCtx into assert event
+					event.Update(globalCtx)
+					if len(respBody) < 4096 {
+						log.Debugf("assert _ctx: %+v", event)
+					}
+					condition, buildErr := conditions.NewCondition(item.Assert)
+					if buildErr != nil {
+						log.Errorf("failed to build conditions whilte assert existed, error: %+v", buildErr)
+						loadStats.NumInvalid ++
+						return
+					}
+					if !condition.Check(event) {
+						loadStats.NumInvalid ++
+						if item.Request != nil {
+							log.Errorf("%s %s, assertion failed, skipping subsequent requests", item.Request.Method, item.Request.Url)
+						}
+
+						if !config.RunnerConfig.ContinueOnAssertInvalid{
+							return false, err
+						}
+					}
+				}
+			}
+
+			if item.Sleep != nil {
+				time.Sleep(time.Duration(item.Sleep.SleepInMilliSeconds) * time.Millisecond)
+			}
 		}
 	}
 
 	return
 }
 
-func buildCtx(resp *fasthttp.Response, respBody []byte, result *RequestResult) util.MapStr {
+func buildCtx(resp *fasthttp.Response, respBody []byte, duration time.Duration) util.MapStr {
 	var statusCode int
 	header := map[string]interface{}{}
 	if resp != nil {
@@ -187,7 +241,7 @@ func buildCtx(resp *fasthttp.Response, respBody []byte, result *RequestResult) u
 				"body":        string(respBody),
 				"body_length": len(respBody),
 			},
-			"elapsed": int64(result.Duration / time.Millisecond),
+			"elapsed": int64(duration / time.Millisecond),
 		},
 	}
 	bodyJson := map[string]interface{}{}
@@ -198,16 +252,19 @@ func buildCtx(resp *fasthttp.Response, respBody []byte, result *RequestResult) u
 	return event
 }
 
-func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int) {
-	stats := &LoadStats{MinRequestTime: time.Minute, StatusCode: map[int]int{}}
+func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int,timer *tachymeter.Tachymeter) {
+	loadStats := &LoadStats{MinRequestTime: time.Millisecond, StatusCode: map[int]int{}}
 	start := time.Now()
 
 	limiter := rate.GetRateLimiter("loadgen", "requests", int(rateLimit), 1, time.Second*1)
-	result := resultPool.Get().(*RequestResult)
-	defer resultPool.Put(result)
 
 	// TODO: support concurrent access
 	globalCtx := util.MapStr{}
+	req := defaultHTTPPool.AcquireRequest()
+	defer defaultHTTPPool.ReleaseRequest(req)
+	resp := defaultHTTPPool.AcquireResponse()
+	defer defaultHTTPPool.ReleaseResponse(resp)
+
 
 	totalRequests := 0
 	totalRounds := 0
@@ -218,68 +275,59 @@ func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int) {
 		}
 		totalRounds += 1
 
-		result.Reset()
+		for _, item := range config.Requests {
 
-		for idx, item := range config.Requests {
-			if countLimit > 0 && totalRequests >= countLimit {
-				goto END
-			}
-			totalRequests += 1
+			if !config.RunnerConfig.BenchmarkOnly{
+				if countLimit > 0 && totalRequests >= countLimit {
+					goto END
+				}
+				totalRequests += 1
 
-			if rateLimit > 0 {
-			RetryRateLimit:
-				if !limiter.Allow() {
-					time.Sleep(10 * time.Millisecond)
-					goto RetryRateLimit
+				if rateLimit > 0 {
+				RetryRateLimit:
+					if !limiter.Allow() {
+						time.Sleep(10 * time.Millisecond)
+						goto RetryRateLimit
+					}
 				}
 			}
 
-			reqBody, respBody, err := doRequest(config,globalCtx, &item, result)
 
-			if item.Request != nil && config.RunnerConfig.LogRequests || util.ContainsInAnyInt32Array(result.Status, config.RunnerConfig.LogStatusCodes) {
-				log.Infof("[%v] %v, %v - %v", item.Request.Method, item.Request.Url, item.Request.Headers, util.SubString(string(reqBody), 0, 512))
-				log.Infof("status: %v, error: %v, response: %v", result.Status, err, util.SubString(string(respBody), 0, 512))
+
+			item.prepareRequest(config,globalCtx, req)
+
+			next,_:=doRequest(config,globalCtx, req,resp,&item, loadStats,timer)
+			if !next{
+				break
 			}
 
-			if result.Error {
-				stats.NumErrs++
-			}
-
-			if result.RequestSize > 0 {
-				stats.TotReqSize += int64(result.RequestSize)
-			}
-
-			if result.ResponseSize > 0 {
-				stats.TotRespSize += int64(result.ResponseSize)
-			}
-
-			////move to async
-			stats.TotDuration += result.Duration
-			stats.MaxRequestTime = util.MaxDuration(result.Duration, stats.MaxRequestTime)
-			stats.MinRequestTime = util.MinDuration(result.Duration, stats.MinRequestTime)
-			stats.NumRequests++
-			stats.StatusCode[result.Status]++
-
-			if result.Invalid {
-				if item.Request != nil {
-					log.Errorf("#%d request, %s %s, assertion failed, skiping subsequent requests", idx, item.Request.Method, item.Request.Url)
-				} else {
-					log.Errorf("#%d action, assertion failed, skiping subsequent requests", idx)
-				}
-				stats.NumInvalid++
-
-				if !config.RunnerConfig.ContinueOnAssertInvalid{
-					break //skip further requests when invalid requests found
-				}
-			}
 		}
 	}
 
 END:
-	cfg.statsAggregator <- stats
+	cfg.statsAggregator <- loadStats
 }
 
 func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Request) {
+	//cleanup
+	req.Reset()
+	req.ResetBody()
+
+	if v.Request.BasicAuth!=nil && v.Request.BasicAuth.Username != "" {
+		req.SetBasicAuth(v.Request.BasicAuth.Username, v.Request.BasicAuth.Password)
+	}else{
+		//try use default auth
+		if config.RunnerConfig.DefaultBasicAuth!=nil&&config.RunnerConfig.DefaultBasicAuth.Username!=""{
+			req.SetBasicAuth(config.RunnerConfig.DefaultBasicAuth.Username, config.RunnerConfig.DefaultBasicAuth.Password)
+		}
+	}
+
+	if v.Request.SimpleMode{
+		req.Header.SetMethod(v.Request.Method)
+		req.SetRequestURI(v.Request.Url)
+		return
+	}
+
 	bodyBuffer := req.BodyBuffer()
 	var bodyWriter io.Writer = bodyBuffer
 	if v.Request.DisableHeaderNamesNormalizing {
@@ -307,6 +355,8 @@ func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr
 				runtimeVariables.Put(k, GetVariable(runtimeVariables, v))
 			}
 		}
+
+
 	}
 
 	//prepare url
@@ -341,15 +391,6 @@ func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr
 
 	//prepare method
 	req.Header.SetMethod(v.Request.Method)
-
-	if v.Request.BasicAuth!=nil && v.Request.BasicAuth.Username != "" {
-		req.SetBasicAuth(v.Request.BasicAuth.Username, v.Request.BasicAuth.Password)
-	}else{
-		//try use default auth
-		if config.RunnerConfig.DefaultBasicAuth!=nil&&config.RunnerConfig.DefaultBasicAuth.Username!=""{
-			req.SetBasicAuth(config.RunnerConfig.DefaultBasicAuth.Username, config.RunnerConfig.DefaultBasicAuth.Password)
-		}
-	}
 
 	if len(v.Request.Headers) > 0 {
 		for _, headers := range v.Request.Headers {
@@ -402,33 +443,35 @@ func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr
 
 func (cfg *LoadGenerator) Warmup(config *LoaderConfig) int {
 	log.Info("warmup started")
-	result := resultPool.Get().(*RequestResult)
-	defer resultPool.Put(result)
+	loadStats := &LoadStats{MinRequestTime: time.Millisecond, StatusCode: map[int]int{}}
+	req := defaultHTTPPool.AcquireRequest()
+	defer defaultHTTPPool.ReleaseRequest(req)
+	resp := defaultHTTPPool.AcquireResponse()
+	defer defaultHTTPPool.ReleaseResponse(resp)
 	globalCtx := util.MapStr{}
-	reqCount := 0
 	for _, v := range config.Requests {
-
-		reqBody, respBody, err := doRequest(config,globalCtx, &v, result)
-		reqCount += 1
-
-		log.Infof("[%v] %v -%v", v.Request.Method, v.Request.Url, util.SubString(string(reqBody), 0, 512))
-		log.Infof("status: %v, error: %v, response: %v", result.Status, err, util.SubString(string(respBody), 0, 512))
-
-		if len(config.RunnerConfig.ValidStatusCodesDuringWarmup)>0{
-			if util.ContainsInAnyInt32Array(result.Status,config.RunnerConfig.ValidStatusCodesDuringWarmup){
-				continue
+		v.prepareRequest(config,globalCtx, req)
+		next,err:=doRequest(config,globalCtx,req,resp, &v, loadStats,nil)
+		for k,_:=range loadStats.StatusCode{
+			if len(config.RunnerConfig.ValidStatusCodesDuringWarmup)>0{
+				if util.ContainsInAnyInt32Array(k,config.RunnerConfig.ValidStatusCodesDuringWarmup){
+					continue
+				}
+			}
+			if k >= 400 || k == 0 || err != nil {
+				log.Infof("requests seems failed to process, err: %v, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...",err)
+				reader := bufio.NewReader(os.Stdin)
+				reader.ReadString('\n')
+				break
 			}
 		}
-
-		if result.Status >= 400 || result.Status == 0 || err != nil {
-			log.Info("requests seems failed to process, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...")
-			reader := bufio.NewReader(os.Stdin)
-			reader.ReadString('\n')
+		if !next{
+			break
 		}
 	}
 
 	log.Info("warmup finished")
-	return reqCount
+	return loadStats.NumRequests
 }
 
 func (cfg *LoadGenerator) Stop() {

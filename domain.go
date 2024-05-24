@@ -37,6 +37,8 @@ type Request struct {
 	Method           string              `config:"method"`
 	Url              string              `config:"url"`
 	Body             string              `config:"body"`
+	SimpleMode       bool              `config:"simple_mode"`
+
 	RepeatBodyNTimes int                 `config:"body_repeat_times"`
 	Headers          []map[string]string `config:"headers"`
 	BasicAuth        *model.BasicAuth    `config:"basic_auth"`
@@ -47,7 +49,10 @@ type Request struct {
 	RuntimeVariables         map[string]string `config:"runtime_variables"`
 	RuntimeBodyLineVariables map[string]string `config:"runtime_body_line_variables"`
 
+	ExecuteRepeatTimes int                 `config:"execute_repeat_times"`
+
 	urlHasTemplate  bool
+	headerHasTemplate  bool
 	bodyHasTemplate bool
 
 	headerTemplates map[string]*fasttemplate.Template
@@ -113,6 +118,13 @@ type RunnerConfig struct {
 	AssertError bool `config:"assert_error"`
 	// Print the request sent to server
 	LogRequests bool `config:"log_requests"`
+
+	BenchmarkOnly bool `config:"benchmark_only"`
+	DurationInUs  bool `config:"duration_in_us"`
+	NoStats       bool `config:"no_stats"`
+	NoSizeStats      bool`config:"no_size_stats"`
+	MetricSampleSize      int`config:"metric_sample_size"`
+
 	// Print the request sent to server if status code matched
 	LogStatusCodes []int `config:"log_status_codes"`
 	// Disable fasthttp client's header names normalizing, preserve original header key, for responses
@@ -255,6 +267,7 @@ func (config *LoaderConfig) Init() error {
 		for _, headers := range v.Request.Headers {
 			for headerK, headerV := range headers {
 				if util.ContainStr(headerV, "$") {
+					v.Request.headerHasTemplate = true
 					v.Request.headerTemplates[headerK], err = fasttemplate.NewTemplate(headerV, "$[[", "]]")
 					if err != nil {
 						return err
@@ -262,6 +275,11 @@ func (config *LoaderConfig) Init() error {
 				}
 			}
 		}
+
+		////if there is no $[[ in the request, then we can assume that the request is in simple mode
+		//if !v.Request.urlHasTemplate && !v.Request.bodyHasTemplate&& !v.Request.headerHasTemplate {
+		//	v.Request.SimpleMode = true
+		//}
 	}
 
 	return nil
@@ -400,8 +418,6 @@ type RequestItem struct {
 	Sleep     *SleepAction       `config:"sleep"`
 	// Populate global context with `_ctx` values
 	Register []map[string]string `config:"register"`
-
-	config *RunnerConfig
 }
 
 type SleepAction struct {
@@ -409,6 +425,7 @@ type SleepAction struct {
 }
 
 type RequestResult struct {
+	RequestCount  int
 	RequestSize  int
 	ResponseSize int
 	Status       int
@@ -420,6 +437,7 @@ type RequestResult struct {
 func (result *RequestResult) Reset() {
 	result.Error = false
 	result.Status = 0
+	result.RequestCount = 0
 	result.RequestSize = 0
 	result.ResponseSize = 0
 	result.Invalid = false
