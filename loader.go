@@ -119,6 +119,10 @@ func doRequest(config *LoaderConfig,globalCtx util.MapStr,req *fasthttp.Request,
 				err = httpClient.Do(req, resp)
 			}
 
+			if global.Env().IsDebug{
+				log.Info(resp.String())
+			}
+
 			duration:=time.Since(start)
 			statsCode:=resp.StatusCode()
 
@@ -376,6 +380,7 @@ func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr
 	}
 	if parsedUrl.Host() == nil || len(parsedUrl.Host()) == 0 {
 		path,err:=config.RunnerConfig.parseDefaultEndpoint()
+		//log.Infof("default endpoint: %v, %v",path,err)
 		if err==nil{
 			parsedUrl.SetSchemeBytes(path.Scheme())
 			parsedUrl.SetHostBytes(path.Host())

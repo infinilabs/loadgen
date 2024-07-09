@@ -141,17 +141,18 @@ type RunnerConfig struct {
 }
 
 func (config *RunnerConfig) parseDefaultEndpoint() (*fasthttp.URI, error) {
+	if config.defaultEndpoint != nil {
+		return config.defaultEndpoint, nil
+	}
+
 	if config.DefaultEndpoint != "" {
-		config.defaultEndpoint = &fasthttp.URI{}
-		err := config.defaultEndpoint.Parse(nil, []byte(config.DefaultEndpoint))
+		uri := &fasthttp.URI{}
+		err := uri.Parse(nil, []byte(config.DefaultEndpoint))
 		if err != nil {
 			return nil, err
 		}
+		config.defaultEndpoint = uri
 		return config.defaultEndpoint, err
-	}
-
-	if config.defaultEndpoint != nil {
-		return config.defaultEndpoint, nil
 	}
 
 	return config.defaultEndpoint, errors.New("no valid default endpoint")
