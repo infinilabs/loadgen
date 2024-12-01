@@ -282,23 +282,47 @@ Run Loadgen to perform the benchmark test as follows:
 [07-19 16:15:01] [INF] [loader.go:317] status: 200,<nil>,{"took":120,"errors":false,"items":[{"index":{"_index":"medcl-y4","_type":"doc","_id":"c3qj9123r0okahraiej0","_version":1,"result":"created","_shards":{"total":2,"successful":1,"failed":0},"_seq_no":5735852,"_primary_term":3,"status":201}}]}
 [07-19 16:15:01] [INF] [loader.go:325] warmup finished
 
-5253 requests in 32.756483336s, 524.61KB sent, 2.49MB received
+209 requests finished in 10.031365126s, 0.00bytes sent, 32.86KB received
 
 [Loadgen Client Metrics]
-Requests/sec:		175.10
-Request Traffic/sec:	17.49KB
-Total Transfer/sec:	102.34KB
-Avg Req Time:		5.711022ms
-Fastest Request:	440.448µs
-Slowest Request:	3.624302658s
-Number of Errors:	0
-Number of Invalid:	0
-Status 200:		5253
+Requests/sec:		20.82
+Request Traffic/sec:	0.00bytes
+Total Transfer/sec:	3.27KB
+Fastest Request:	1ms
+Slowest Request:	182.437792ms
+Status 302:		209
+
+[Latency Metrics]
+209 samples of 209 events
+Cumulative:	10.031365126s
+HMean:		46.31664ms
+Avg.:		47.996962ms
+p50: 		45.712292ms
+p75:		51.6065ms
+p95:		53.05475ms
+p99:		118.162416ms
+p999:		182.437792ms
+Long 5%:	87.678145ms
+Short 5%:	39.11217ms
+Max:		182.437792ms
+Min:		38.257791ms
+Range:		144.180001ms
+StdDev:		14.407579ms
+Rate/sec.:	20.82
+
+[Latency Distribution]
+   38.257ms - 52.675ms ------------------------------
+   52.675ms - 67.093ms --
+   67.093ms - 81.511ms -
+   81.511ms - 95.929ms -
+  95.929ms - 110.347ms -
+ 110.347ms - 124.765ms -
+
 
 [Estimated Server Metrics]
-Requests/sec:		160.37
-Transfer/sec:		93.73KB
-Avg Req Time:		623.576686ms
+Requests/sec:		20.83
+Avg Req Time:		47.996962ms
+Transfer/sec:		3.28KB
 ```
 
 Loadgen executes all requests once to warm up before the formal benchmark test. If an error occurs, a prompt is displayed, asking you whether to continue.
@@ -442,3 +466,20 @@ requests:
 ```
 
 By default, `loadgen` will canonilize the HTTP header keys before sending the request (`user-agent: xxx` -> `User-Agent: xxx`), if you need to set the header keys exactly as is, set `disable_header_names_normalizing: true`.
+
+### Work with DSL
+
+Loadgen also support simply the requests called DSL,for example, prepare a dsl file for loadgen, save as `bulk.dsl`:
+
+```
+POST /_bulk
+{"index": {"_index": "$[[env.INDEX_NAME]]", "_type": "_doc", "_id": "$[[uuid]]"}}
+{"id": "$[[id]]", "routing": "$[[routing_no]]", "batch": "$[[batch_no]]", "now_local": "$[[now_local]]", "now_unix": "$[[now_unix]]"}
+```
+And specify the dsl file with parameter `run`:
+
+```
+$ INDEX_NAME=medcl123 ES_ENDPOINT=https://localhost:9200 ES_USERNAME=admin  ES_PASSWORD=b14612393da0d4e7a70b ./bin/loadgen -run bulk.dsl
+```
+
+Now you should ready to rock~
