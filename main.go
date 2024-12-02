@@ -1,6 +1,6 @@
 // Copyright (C) INFINI Labs & INFINI LIMITED.
 //
-// The INFINI Framework is offered under the GNU Affero General Public License v3.0
+// The INFINI Loadgen is offered under the GNU Affero General Public License v3.0
 // and as commercial software.
 //
 // For commercial licensing, contact us at:
