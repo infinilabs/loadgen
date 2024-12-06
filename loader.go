@@ -32,7 +32,6 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
-	"github.com/jamiealquiza/tachymeter"
 	"io"
 	"net"
 	"os"
@@ -40,6 +39,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/jamiealquiza/tachymeter"
 
 	log "github.com/cihub/seelog"
 	"infini.sh/framework/core/conditions"
@@ -334,11 +335,11 @@ func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr
 	req.ResetBody()
 
 	if v.Request.BasicAuth != nil && v.Request.BasicAuth.Username != "" {
-		req.SetBasicAuth(v.Request.BasicAuth.Username, v.Request.BasicAuth.Password)
+		req.SetBasicAuth(v.Request.BasicAuth.Username, v.Request.BasicAuth.Password.Get())
 	} else {
 		//try use default auth
 		if config.RunnerConfig.DefaultBasicAuth != nil && config.RunnerConfig.DefaultBasicAuth.Username != "" {
-			req.SetBasicAuth(config.RunnerConfig.DefaultBasicAuth.Username, config.RunnerConfig.DefaultBasicAuth.Password)
+			req.SetBasicAuth(config.RunnerConfig.DefaultBasicAuth.Username, config.RunnerConfig.DefaultBasicAuth.Password.Get())
 		}
 	}
 
