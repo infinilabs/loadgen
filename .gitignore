@@ -6,3 +6,4 @@ bin
 vendor
 generated_*.go
 testing
+.idea
