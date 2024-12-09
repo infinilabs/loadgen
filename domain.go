@@ -57,10 +57,10 @@ func (m valuesMap) GetValue(key string) (interface{}, error) {
 }
 
 type Request struct {
-	Method           string              `config:"method"`
-	Url              string              `config:"url"`
-	Body             string              `config:"body"`
-	SimpleMode       bool              `config:"simple_mode"`
+	Method     string `config:"method"`
+	Url        string `config:"url"`
+	Body       string `config:"body"`
+	SimpleMode bool   `config:"simple_mode"`
 
 	RepeatBodyNTimes int                 `config:"body_repeat_times"`
 	Headers          []map[string]string `config:"headers"`
@@ -72,11 +72,11 @@ type Request struct {
 	RuntimeVariables         map[string]string `config:"runtime_variables"`
 	RuntimeBodyLineVariables map[string]string `config:"runtime_body_line_variables"`
 
-	ExecuteRepeatTimes int                 `config:"execute_repeat_times"`
+	ExecuteRepeatTimes int `config:"execute_repeat_times"`
 
-	urlHasTemplate  bool
-	headerHasTemplate  bool
-	bodyHasTemplate bool
+	urlHasTemplate    bool
+	headerHasTemplate bool
+	bodyHasTemplate   bool
 
 	headerTemplates map[string]*fasttemplate.Template
 	urlTemplate     *fasttemplate.Template
@@ -142,11 +142,11 @@ type RunnerConfig struct {
 	// Print the request sent to server
 	LogRequests bool `config:"log_requests"`
 
-	BenchmarkOnly bool `config:"benchmark_only"`
-	DurationInUs  bool `config:"duration_in_us"`
-	NoStats       bool `config:"no_stats"`
-	NoSizeStats      bool`config:"no_size_stats"`
-	MetricSampleSize      int`config:"metric_sample_size"`
+	BenchmarkOnly    bool `config:"benchmark_only"`
+	DurationInUs     bool `config:"duration_in_us"`
+	NoStats          bool `config:"no_stats"`
+	NoSizeStats      bool `config:"no_size_stats"`
+	MetricSampleSize int  `config:"metric_sample_size"`
 
 	// Print the request sent to server if status code matched
 	LogStatusCodes []int `config:"log_status_codes"`
@@ -449,7 +449,7 @@ type SleepAction struct {
 }
 
 type RequestResult struct {
-	RequestCount  int
+	RequestCount int
 	RequestSize  int
 	ResponseSize int
 	Status       int

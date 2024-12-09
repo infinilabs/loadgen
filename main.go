@@ -92,8 +92,8 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 
 	flag.Parse()
 
-	if cfg.RunnerConfig.MetricSampleSize<=0{
-		cfg.RunnerConfig.MetricSampleSize=10000
+	if cfg.RunnerConfig.MetricSampleSize <= 0 {
+		cfg.RunnerConfig.MetricSampleSize = 10000
 	}
 
 	// Initialize tachymeter.
@@ -136,7 +136,7 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 			leftDoc -= thisDoc
 		}
 
-		go loadGen.Run(cfg, thisDoc,timer)
+		go loadGen.Run(cfg, thisDoc, timer)
 	}
 
 	responders := 0
@@ -173,7 +173,7 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 		return nil
 	}
 
-	finalDuration:=time.Since(wallTimeStart)
+	finalDuration := time.Since(wallTimeStart)
 
 	// When finished, set elapsed wall time.
 	timer.SetWallTime(finalDuration)
@@ -191,33 +191,32 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 	// Flush before printing stats to avoid logging mixing with stats
 	log.Flush()
 
-	if cfg.RunnerConfig.NoSizeStats{
+	if cfg.RunnerConfig.NoSizeStats {
 		fmt.Printf("\n%v requests finished in %v\n", aggStats.NumRequests, avgThreadDur)
-	}else{
+	} else {
 		fmt.Printf("\n%v requests finished in %v, %v sent, %v received\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize)}, util.ByteValue{float64(aggStats.TotRespSize)})
 	}
 
 	fmt.Println("\n[Loadgen Client Metrics]")
 
-	fmt.Printf("Requests/sec:\t\t%.2f\n",roughReqRate)
+	fmt.Printf("Requests/sec:\t\t%.2f\n", roughReqRate)
 
-	if !cfg.RunnerConfig.BenchmarkOnly&& !cfg.RunnerConfig.NoSizeStats {
+	if !cfg.RunnerConfig.BenchmarkOnly && !cfg.RunnerConfig.NoSizeStats {
 		fmt.Printf(
 			"Request Traffic/sec:\t%v\n"+
-			"Total Transfer/sec:\t%v\n",
+				"Total Transfer/sec:\t%v\n",
 			util.ByteValue{roughReqBytesRate},
 			util.ByteValue{roughBytesRate})
 	}
 
-
 	fmt.Printf("Fastest Request:\t%v\n", aggStats.MinRequestTime)
 	fmt.Printf("Slowest Request:\t%v\n", aggStats.MaxRequestTime)
 
-	if cfg.RunnerConfig.AssertError{
+	if cfg.RunnerConfig.AssertError {
 		fmt.Printf("Number of Errors:\t%v\n", aggStats.NumErrs)
 	}
 
-	if cfg.RunnerConfig.AssertInvalid{
+	if cfg.RunnerConfig.AssertInvalid {
 		fmt.Printf("Number of Invalid:\t%v\n", aggStats.NumInvalid)
 	}
 
@@ -225,7 +224,7 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 		fmt.Printf("Status %v:\t\t%v\n", k, v)
 	}
 
-	if !cfg.RunnerConfig.BenchmarkOnly&& !cfg.RunnerConfig.NoStats{
+	if !cfg.RunnerConfig.BenchmarkOnly && !cfg.RunnerConfig.NoStats {
 		// Rate outputs will be accurate.
 		fmt.Println("\n[Latency Metrics]")
 		fmt.Println(timer.Calc().String())
@@ -234,9 +233,9 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 		fmt.Println(timer.Calc().Histogram.String(30))
 	}
 
-	fmt.Printf("\n[Estimated Server Metrics]\nRequests/sec:\t\t%.2f\nAvg Req Time:\t\t%v\n", reqRate,  avgReqTime)
-	if  !cfg.RunnerConfig.BenchmarkOnly&& !cfg.RunnerConfig.NoSizeStats {
-		fmt.Printf("Transfer/sec:\t\t%v\n",  util.ByteValue{bytesRate})
+	fmt.Printf("\n[Estimated Server Metrics]\nRequests/sec:\t\t%.2f\nAvg Req Time:\t\t%v\n", reqRate, avgReqTime)
+	if !cfg.RunnerConfig.BenchmarkOnly && !cfg.RunnerConfig.NoSizeStats {
+		fmt.Printf("Transfer/sec:\t\t%v\n", util.ByteValue{bytesRate})
 	}
 
 	fmt.Println("")
@@ -429,7 +428,7 @@ func runDSLFile(appConfig *AppConfig, path string) int {
 }
 
 func runDSL(appConfig *AppConfig, dsl string) int {
-	loaderConfig := parseDSL(appConfig,dsl)
+	loaderConfig := parseDSL(appConfig, dsl)
 	return runLoaderConfig(&loaderConfig)
 }
 
@@ -453,10 +452,10 @@ func runLoaderConfig(config *LoaderConfig) int {
 }
 
 // parseDSL parses a DSL string to LoaderConfig.
-func parseDSL(appConfig *AppConfig,input string) (output LoaderConfig) {
-	output= LoaderConfig{}
-	output.RunnerConfig=appConfig.RunnerConfig
-	output.Variable=appConfig.Variable
+func parseDSL(appConfig *AppConfig, input string) (output LoaderConfig) {
+	output = LoaderConfig{}
+	output.RunnerConfig = appConfig.RunnerConfig
+	output.Variable = appConfig.Variable
 
 	outputStr, err := loadPlugins([][]byte{loadgenDSL}, input)
 	if err != nil {
