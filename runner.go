@@ -119,18 +119,18 @@ func runTest(config *AppConfig, cwd string, test Test) (*TestResult, error) {
 
 	loaderConfigPath := path.Join(testPath, "loadgen.dsl")
 	//auto resolve the loaderConfigPath
-	if !util.FileExists(loaderConfigPath){
-		temp:=path.Join(filepath.Dir(global.Env().GetConfigFile()),loaderConfigPath)
-		if util.FileExists(temp){
-			loaderConfigPath=temp
-		}else{
-			temp:=path.Join(filepath.Dir(global.Env().GetConfigDir()),loaderConfigPath)
-			if util.FileExists(temp){
-				loaderConfigPath=temp
+	if !util.FileExists(loaderConfigPath) {
+		temp := path.Join(filepath.Dir(global.Env().GetConfigFile()), loaderConfigPath)
+		if util.FileExists(temp) {
+			loaderConfigPath = temp
+		} else {
+			temp := path.Join(filepath.Dir(global.Env().GetConfigDir()), loaderConfigPath)
+			if util.FileExists(temp) {
+				loaderConfigPath = temp
 			}
 		}
 	}
-	loaderConfigPath,_=filepath.Abs(loaderConfigPath)
+	loaderConfigPath, _ = filepath.Abs(loaderConfigPath)
 
 	//log.Debugf("Executing gateway within %s", testPath)
 	//if err := os.Chdir(filepath.Dir(loaderConfigPath)); err != nil {

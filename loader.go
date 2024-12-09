@@ -90,22 +90,22 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 	}
 
 	httpClient = fasthttp.Client{
-		MaxConnsPerHost:               goroutines,
+		MaxConnsPerHost: goroutines,
 		//MaxConns: goroutines,
 		NoDefaultUserAgentHeader:      false,
 		DisableHeaderNamesNormalizing: disableHeaderNamesNormalizing,
-		Name:      global.Env().GetAppLowercaseName() + "/" + global.Env().GetVersion() + "/" + global.Env().GetBuildNumber(),
-		TLSConfig: &tls.Config{InsecureSkipVerify: true},
+		Name:                          global.Env().GetAppLowercaseName() + "/" + global.Env().GetVersion() + "/" + global.Env().GetBuildNumber(),
+		TLSConfig:                     &tls.Config{InsecureSkipVerify: true},
 	}
 
-	if readTimeout>0{
-		httpClient.ReadTimeout= time.Second * time.Duration(readTimeout)
+	if readTimeout > 0 {
+		httpClient.ReadTimeout = time.Second * time.Duration(readTimeout)
 	}
-	if writeTimeout>0{
-		httpClient.WriteTimeout= time.Second * time.Duration(writeTimeout)
+	if writeTimeout > 0 {
+		httpClient.WriteTimeout = time.Second * time.Duration(writeTimeout)
 	}
-	if dialTimeout>0{
-		httpClient.Dial=func(addr string) (net.Conn, error) {
+	if dialTimeout > 0 {
+		httpClient.Dial = func(addr string) (net.Conn, error) {
 			return fasthttp.DialTimeout(addr, time.Duration(dialTimeout)*time.Second)
 		}
 	}
@@ -116,41 +116,37 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 
 var defaultHTTPPool = fasthttp.NewRequestResponsePool("default_http")
 
-
-
-func doRequest(config *LoaderConfig,globalCtx util.MapStr,req *fasthttp.Request,resp *fasthttp.Response, item *RequestItem, loadStats *LoadStats,timer *tachymeter.Tachymeter) (continueNext bool,err error) {
+func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Request, resp *fasthttp.Response, item *RequestItem, loadStats *LoadStats, timer *tachymeter.Tachymeter) (continueNext bool, err error) {
 
 	if item.Request != nil {
 
-
-		if item.Request.ExecuteRepeatTimes<1{
-			item.Request.ExecuteRepeatTimes=1
+		if item.Request.ExecuteRepeatTimes < 1 {
+			item.Request.ExecuteRepeatTimes = 1
 		}
 
-		for i:=0;i<item.Request.ExecuteRepeatTimes;i++{
+		for i := 0; i < item.Request.ExecuteRepeatTimes; i++ {
 			resp.Reset()
 			resp.ResetBody()
 			start := time.Now()
 
-			if global.Env().IsDebug{
+			if global.Env().IsDebug {
 				log.Info(req.String())
 			}
 
-			if timeout>0{
+			if timeout > 0 {
 				err = httpClient.DoTimeout(req, resp, time.Duration(timeout)*time.Second)
-			}else{
+			} else {
 				err = httpClient.Do(req, resp)
 			}
 
-			if global.Env().IsDebug{
+			if global.Env().IsDebug {
 				log.Info(resp.String())
 			}
 
-			duration:=time.Since(start)
-			statsCode:=resp.StatusCode()
+			duration := time.Since(start)
+			statsCode := resp.StatusCode()
 
-
-			if !config.RunnerConfig.BenchmarkOnly && timer!=nil{
+			if !config.RunnerConfig.BenchmarkOnly && timer != nil {
 				timer.AddTime(duration)
 			}
 
@@ -164,33 +160,33 @@ func doRequest(config *LoaderConfig,globalCtx util.MapStr,req *fasthttp.Request,
 				stats.Increment("request", "total")
 				stats.Increment("request", strconv.Itoa(resp.StatusCode()))
 
-				if err!=nil {
+				if err != nil {
 					loadStats.NumErrs++
-					loadStats.NumInvalid ++
+					loadStats.NumInvalid++
 				}
 
-				if !config.RunnerConfig.NoSizeStats{
-					loadStats.TotReqSize += int64(req.GetRequestLength()) //TODO inaccurate
+				if !config.RunnerConfig.NoSizeStats {
+					loadStats.TotReqSize += int64(req.GetRequestLength())    //TODO inaccurate
 					loadStats.TotRespSize += int64(resp.GetResponseLength()) //TODO inaccurate
 				}
 
-				loadStats.NumRequests ++
-				loadStats.TotDuration+=duration
+				loadStats.NumRequests++
+				loadStats.TotDuration += duration
 				loadStats.MaxRequestTime = util.MaxDuration(duration, loadStats.MaxRequestTime)
 				loadStats.MinRequestTime = util.MinDuration(duration, loadStats.MinRequestTime)
-				loadStats.StatusCode[statsCode]+=1
+				loadStats.StatusCode[statsCode] += 1
 			}
 
 			if config.RunnerConfig.BenchmarkOnly {
-				return  true,err
+				return true, err
 			}
 
-			if item.Register!=nil || item.Assert!=nil ||config.RunnerConfig.LogRequests{
+			if item.Register != nil || item.Assert != nil || config.RunnerConfig.LogRequests {
 				//only use last request and response
 				reqBody := req.GetRawBody()
 				respBody := resp.GetRawBody()
-				if global.Env().IsDebug{
-					log.Debugf("final response code: %v, body: %s", resp.StatusCode(),string(respBody))
+				if global.Env().IsDebug {
+					log.Debugf("final response code: %v, body: %s", resp.StatusCode(), string(respBody))
 				}
 
 				if item.Request != nil && config.RunnerConfig.LogRequests || util.ContainsInAnyInt32Array(statsCode, config.RunnerConfig.LogStatusCodes) {
@@ -198,7 +194,7 @@ func doRequest(config *LoaderConfig,globalCtx util.MapStr,req *fasthttp.Request,
 					log.Infof("status: %v, error: %v, response: %v", statsCode, err, util.SubString(string(respBody), 0, 512))
 				}
 
-				if err!=nil{
+				if err != nil {
 					continue
 				}
 
@@ -226,16 +222,16 @@ func doRequest(config *LoaderConfig,globalCtx util.MapStr,req *fasthttp.Request,
 					condition, buildErr := conditions.NewCondition(item.Assert)
 					if buildErr != nil {
 						log.Errorf("failed to build conditions whilte assert existed, error: %+v", buildErr)
-						loadStats.NumInvalid ++
+						loadStats.NumInvalid++
 						return
 					}
 					if !condition.Check(event) {
-						loadStats.NumInvalid ++
+						loadStats.NumInvalid++
 						if item.Request != nil {
 							log.Errorf("%s %s, assertion failed, skipping subsequent requests", item.Request.Method, item.Request.Url)
 						}
 
-						if !config.RunnerConfig.ContinueOnAssertInvalid{
+						if !config.RunnerConfig.ContinueOnAssertInvalid {
 							return false, err
 						}
 					}
@@ -279,7 +275,7 @@ func buildCtx(resp *fasthttp.Response, respBody []byte, duration time.Duration) 
 	return event
 }
 
-func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int,timer *tachymeter.Tachymeter) {
+func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int, timer *tachymeter.Tachymeter) {
 	loadStats := &LoadStats{MinRequestTime: time.Millisecond, StatusCode: map[int]int{}}
 	start := time.Now()
 
@@ -292,7 +288,6 @@ func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int,timer *tachym
 	resp := defaultHTTPPool.AcquireResponse()
 	defer defaultHTTPPool.ReleaseResponse(resp)
 
-
 	totalRequests := 0
 	totalRounds := 0
 
@@ -304,7 +299,7 @@ func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int,timer *tachym
 
 		for _, item := range config.Requests {
 
-			if !config.RunnerConfig.BenchmarkOnly{
+			if !config.RunnerConfig.BenchmarkOnly {
 				if countLimit > 0 && totalRequests >= countLimit {
 					goto END
 				}
@@ -319,12 +314,10 @@ func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int,timer *tachym
 				}
 			}
 
+			item.prepareRequest(config, globalCtx, req)
 
-
-			item.prepareRequest(config,globalCtx, req)
-
-			next,_:=doRequest(config,globalCtx, req,resp,&item, loadStats,timer)
-			if !next{
+			next, _ := doRequest(config, globalCtx, req, resp, &item, loadStats, timer)
+			if !next {
 				break
 			}
 
@@ -340,16 +333,16 @@ func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr
 	req.Reset()
 	req.ResetBody()
 
-	if v.Request.BasicAuth!=nil && v.Request.BasicAuth.Username != "" {
+	if v.Request.BasicAuth != nil && v.Request.BasicAuth.Username != "" {
 		req.SetBasicAuth(v.Request.BasicAuth.Username, v.Request.BasicAuth.Password)
-	}else{
+	} else {
 		//try use default auth
-		if config.RunnerConfig.DefaultBasicAuth!=nil&&config.RunnerConfig.DefaultBasicAuth.Username!=""{
+		if config.RunnerConfig.DefaultBasicAuth != nil && config.RunnerConfig.DefaultBasicAuth.Username != "" {
 			req.SetBasicAuth(config.RunnerConfig.DefaultBasicAuth.Username, config.RunnerConfig.DefaultBasicAuth.Password)
 		}
 	}
 
-	if v.Request.SimpleMode{
+	if v.Request.SimpleMode {
 		req.Header.SetMethod(v.Request.Method)
 		req.SetRequestURI(v.Request.Url)
 		return
@@ -383,7 +376,6 @@ func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr
 			}
 		}
 
-
 	}
 
 	//prepare url
@@ -397,14 +389,14 @@ func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr
 
 	//set default endpoint
 	parsedUrl := fasthttp.URI{}
-	err:=parsedUrl.Parse(nil, []byte(url))
-	if err!=nil{
+	err := parsedUrl.Parse(nil, []byte(url))
+	if err != nil {
 		panic(err)
 	}
 	if parsedUrl.Host() == nil || len(parsedUrl.Host()) == 0 {
-		path,err:=config.RunnerConfig.parseDefaultEndpoint()
+		path, err := config.RunnerConfig.parseDefaultEndpoint()
 		//log.Infof("default endpoint: %v, %v",path,err)
-		if err==nil{
+		if err == nil {
 			parsedUrl.SetSchemeBytes(path.Scheme())
 			parsedUrl.SetHostBytes(path.Host())
 		}
@@ -413,8 +405,8 @@ func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr
 
 	req.SetRequestURI(url)
 
-	if global.Env().IsDebug{
-		log.Debugf("final request url: %v %s", v.Request.Method,url)
+	if global.Env().IsDebug {
+		log.Debugf("final request url: %v %s", v.Request.Method, url)
 	}
 
 	//prepare method
@@ -478,22 +470,22 @@ func (cfg *LoadGenerator) Warmup(config *LoaderConfig) int {
 	defer defaultHTTPPool.ReleaseResponse(resp)
 	globalCtx := util.MapStr{}
 	for _, v := range config.Requests {
-		v.prepareRequest(config,globalCtx, req)
-		next,err:=doRequest(config,globalCtx,req,resp, &v, loadStats,nil)
-		for k,_:=range loadStats.StatusCode{
-			if len(config.RunnerConfig.ValidStatusCodesDuringWarmup)>0{
-				if util.ContainsInAnyInt32Array(k,config.RunnerConfig.ValidStatusCodesDuringWarmup){
+		v.prepareRequest(config, globalCtx, req)
+		next, err := doRequest(config, globalCtx, req, resp, &v, loadStats, nil)
+		for k, _ := range loadStats.StatusCode {
+			if len(config.RunnerConfig.ValidStatusCodesDuringWarmup) > 0 {
+				if util.ContainsInAnyInt32Array(k, config.RunnerConfig.ValidStatusCodesDuringWarmup) {
 					continue
 				}
 			}
 			if k >= 400 || k == 0 || err != nil {
-				log.Infof("requests seems failed to process, err: %v, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...",err)
+				log.Infof("requests seems failed to process, err: %v, are you sure to continue?\nPress `Ctrl+C` to skip or press 'Enter' to continue...", err)
 				reader := bufio.NewReader(os.Stdin)
 				reader.ReadString('\n')
 				break
 			}
 		}
-		if !next{
+		if !next {
 			break
 		}
 	}
