@@ -222,7 +222,7 @@ func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Reques
 					}
 					condition, buildErr := conditions.NewCondition(item.Assert)
 					if buildErr != nil {
-						log.Errorf("failed to build conditions whilte assert existed, error: %+v", buildErr)
+						log.Errorf("failed to build conditions while assert existed, error: %+v", buildErr)
 						loadStats.NumInvalid++
 						return
 					}
@@ -233,6 +233,7 @@ func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Reques
 						}
 
 						if !config.RunnerConfig.ContinueOnAssertInvalid {
+							log.Infof("assertion failed, skipping subsequent requests,", item.Assert, ", event:", event)
 							return false, err
 						}
 					}
@@ -245,7 +246,7 @@ func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Reques
 		}
 	}
 
-	return
+	return true, nil
 }
 
 func buildCtx(resp *fasthttp.Response, respBody []byte, duration time.Duration) util.MapStr {
@@ -298,7 +299,7 @@ func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int, timer *tachy
 		}
 		totalRounds += 1
 
-		for _, item := range config.Requests {
+		for i, item := range config.Requests {
 
 			if !config.RunnerConfig.BenchmarkOnly {
 				if countLimit > 0 && totalRequests >= countLimit {
@@ -317,7 +318,10 @@ func (cfg *LoadGenerator) Run(config *LoaderConfig, countLimit int, timer *tachy
 
 			item.prepareRequest(config, globalCtx, req)
 
-			next, _ := doRequest(config, globalCtx, req, resp, &item, loadStats, timer)
+			next, err := doRequest(config, globalCtx, req, resp, &item, loadStats, timer)
+			if global.Env().IsDebug {
+				log.Debugf("#%v,contine: %v, err:%v", i, next, err)
+			}
 			if !next {
 				break
 			}
