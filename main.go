@@ -217,7 +217,7 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 	}
 
 	if cfg.RunnerConfig.AssertInvalid {
-		fmt.Printf("Number of Invalid:\t%v\n", aggStats.NumInvalid)
+		fmt.Printf("Assert Invalid:\t%v\n", aggStats.NumInvalid)
 	}
 
 	for k, v := range aggStats.StatusCode {
