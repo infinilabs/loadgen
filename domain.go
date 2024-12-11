@@ -136,6 +136,7 @@ type RunnerConfig struct {
 	AssertInvalid bool `config:"assert_invalid"`
 
 	ContinueOnAssertInvalid bool `config:"continue_on_assert_invalid"`
+	SkipInvalidAssert       bool `config:"skip_invalid_assert"`
 
 	// Exit(2) if any error occurred
 	AssertError bool `config:"assert_error"`

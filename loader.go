@@ -222,6 +222,9 @@ func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Reques
 					}
 					condition, buildErr := conditions.NewCondition(item.Assert)
 					if buildErr != nil {
+						if config.RunnerConfig.SkipInvalidAssert{
+							continue
+						}
 						log.Errorf("failed to build conditions while assert existed, error: %+v", buildErr)
 						loadStats.NumInvalid++
 						return
@@ -233,7 +236,7 @@ func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Reques
 						}
 
 						if !config.RunnerConfig.ContinueOnAssertInvalid {
-							log.Infof("assertion failed, skipping subsequent requests,", item.Assert, ", event:", event)
+							log.Info("assertion failed, skipping subsequent requests,", util.MustToJSON(item.Assert), ", event:", util.MustToJSON(event))
 							return false, err
 						}
 					}
@@ -476,6 +479,12 @@ func (cfg *LoadGenerator) Warmup(config *LoaderConfig) int {
 	globalCtx := util.MapStr{}
 	for _, v := range config.Requests {
 		v.prepareRequest(config, globalCtx, req)
+
+		if !req.Validate(){
+			log.Errorf("invalid request: %v",req.String())
+			panic("invalid request")
+		}
+
 		next, err := doRequest(config, globalCtx, req, resp, &v, loadStats, nil)
 		for k, _ := range loadStats.StatusCode {
 			if len(config.RunnerConfig.ValidStatusCodesDuringWarmup) > 0 {
