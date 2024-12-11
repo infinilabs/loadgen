@@ -59,15 +59,16 @@ type LoadGenerator struct {
 }
 
 type LoadStats struct {
-	TotReqSize     int64
-	TotRespSize    int64
-	TotDuration    time.Duration
-	MinRequestTime time.Duration
-	MaxRequestTime time.Duration
-	NumRequests    int
-	NumErrs        int
-	NumInvalid     int
-	StatusCode     map[int]int
+	TotReqSize       int64
+	TotRespSize      int64
+	TotDuration      time.Duration
+	MinRequestTime   time.Duration
+	MaxRequestTime   time.Duration
+	NumRequests      int
+	NumErrs          int
+	NumAssertInvalid int
+	NumAssertSkipped int
+	StatusCode       map[int]int
 }
 
 var (
@@ -163,7 +164,7 @@ func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Reques
 
 				if err != nil {
 					loadStats.NumErrs++
-					loadStats.NumInvalid++
+					loadStats.NumAssertInvalid++
 				}
 
 				if !config.RunnerConfig.NoSizeStats {
@@ -223,14 +224,15 @@ func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Reques
 					condition, buildErr := conditions.NewCondition(item.Assert)
 					if buildErr != nil {
 						if config.RunnerConfig.SkipInvalidAssert{
+							loadStats.NumAssertSkipped++
 							continue
 						}
 						log.Errorf("failed to build conditions while assert existed, error: %+v", buildErr)
-						loadStats.NumInvalid++
+						loadStats.NumAssertInvalid++
 						return
 					}
 					if !condition.Check(event) {
-						loadStats.NumInvalid++
+						loadStats.NumAssertInvalid++
 						if item.Request != nil {
 							log.Errorf("%s %s, assertion failed, skipping subsequent requests", item.Request.Method, item.Request.Url)
 						}

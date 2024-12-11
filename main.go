@@ -148,7 +148,8 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 			loadGen.Stop()
 		case stats := <-statsAggregator:
 			aggStats.NumErrs += stats.NumErrs
-			aggStats.NumInvalid += stats.NumInvalid
+			aggStats.NumAssertInvalid += stats.NumAssertInvalid
+			aggStats.NumAssertSkipped += stats.NumAssertSkipped
 			aggStats.NumRequests += stats.NumRequests
 			aggStats.TotReqSize += stats.TotReqSize
 			aggStats.TotRespSize += stats.TotRespSize
@@ -217,7 +218,8 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 	}
 
 	if cfg.RunnerConfig.AssertInvalid {
-		fmt.Printf("Assert Invalid:\t%v\n", aggStats.NumInvalid)
+		fmt.Printf("Assert Invalid:\t\t%v\n", aggStats.NumAssertInvalid)
+		fmt.Printf("Assert Skipped:\t\t%v\n", aggStats.NumAssertSkipped)
 	}
 
 	for k, v := range aggStats.StatusCode {
@@ -440,7 +442,7 @@ func runLoaderConfig(config *LoaderConfig) int {
 
 	aggStats := startLoader(config)
 	if aggStats != nil {
-		if config.RunnerConfig.AssertInvalid && aggStats.NumInvalid > 0 {
+		if config.RunnerConfig.AssertInvalid && aggStats.NumAssertInvalid > 0 {
 			return 1
 		}
 		if config.RunnerConfig.AssertError && aggStats.NumErrs > 0 {
