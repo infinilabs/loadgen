@@ -65,21 +65,23 @@ var writeTimeout int = 0
 var dialTimeout int = 3
 var compress bool = false
 var mixed bool = false
+var totalRounds int = -1
 var dslFileToRun string
 var statsAggregator chan *LoadStats
 
 func init() {
-	flag.IntVar(&goroutines, "c", 1, "Number of concurrent threads")
-	flag.IntVar(&maxDuration, "d", 5, "Duration of tests in seconds")
-	flag.IntVar(&rateLimit, "r", -1, "Max requests per second (fixed QPS)")
-	flag.IntVar(&reqLimit, "l", -1, "Limit total requests")
-	flag.IntVar(&timeout, "timeout", 0, "Request timeout in seconds, default 0s")
-	flag.IntVar(&readTimeout, "read-timeout", 0, "Connection read timeout in seconds, default 0s (use -timeout)")
-	flag.IntVar(&writeTimeout, "write-timeout", 0, "Connection write timeout in seconds, default 0s (use -timeout)")
-	flag.IntVar(&dialTimeout, "dial-timeout", 3, "Connection dial timeout in seconds, default 3s")
-	flag.BoolVar(&compress, "compress", false, "Compress requests with gzip")
-	flag.BoolVar(&mixed, "mixed", false, "Mixed requests from Yaml/DSL")
-	flag.StringVar(&dslFileToRun, "run", "", "DSL config to run tests")
+	flag.IntVar(&goroutines, "c", 1, "Number of concurrent threads to use")
+	flag.IntVar(&maxDuration, "d", 5, "Duration of the test in seconds")
+	flag.IntVar(&rateLimit, "r", -1, "Maximum requests per second (fixed QPS), default: -1 (unlimited)")
+	flag.IntVar(&reqLimit, "l", -1, "Total number of requests to send, default: -1 (unlimited)")
+	flag.IntVar(&timeout, "timeout", 0, "Request timeout in seconds, default: 0 (no timeout)")
+	flag.IntVar(&readTimeout, "read-timeout", 0, "Connection read timeout in seconds, default: 0 (inherits -timeout)")
+	flag.IntVar(&writeTimeout, "write-timeout", 0, "Connection write timeout in seconds, default: 0 (inherits -timeout)")
+	flag.IntVar(&dialTimeout, "dial-timeout", 3, "Connection dial timeout in seconds, default: 3")
+	flag.BoolVar(&compress, "compress", false, "Enable gzip compression for requests")
+	flag.BoolVar(&mixed, "mixed", false, "Enable mixed requests from YAML/DSL")
+	flag.IntVar(&totalRounds, "total-rounds", -1, "Number of rounds for each request configuration, default: -1 (unlimited)")
+	flag.StringVar(&dslFileToRun, "run", "", "Path to a DSL-based request file to execute")
 }
 
 func startLoader(cfg *LoaderConfig) *LoadStats {
@@ -94,6 +96,11 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 
 	if cfg.RunnerConfig.MetricSampleSize <= 0 {
 		cfg.RunnerConfig.MetricSampleSize = 10000
+	}
+
+	//override the total
+	if totalRounds>0{
+		cfg.RunnerConfig.TotalRounds=totalRounds
 	}
 
 	// Initialize tachymeter.
