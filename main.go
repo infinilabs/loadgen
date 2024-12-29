@@ -281,7 +281,7 @@ func main() {
 	terminalFooter := ("")
 
 	app := framework.NewApp("loadgen", "A http load generator and testing suite.",
-		util.TrimSpaces(config.Version), util.TrimSpaces(config.BuildNumber), util.TrimSpaces(config.LastCommitLog), util.TrimSpaces(config.BuildDate), util.TrimSpaces(config.EOLDate), terminalHeader, terminalFooter)
+		config.Version, config.BuildNumber, config.LastCommitLog, config.BuildDate, config.EOLDate, terminalHeader, terminalFooter)
 
 	app.IgnoreMainConfigMissing()
 	app.Init(nil)
@@ -408,8 +408,6 @@ func main() {
 	}, nil) {
 		app.Run()
 	}
-
-	time.Sleep(1 * time.Second)
 
 }
 
