@@ -284,10 +284,11 @@ func main() {
 	terminalHeader += (" / /  //  ///_\\\\  / /\\ / /_\\//_\\ /  \\/ /\n")
 	terminalHeader += ("/ /__/ \\_//  _  \\/ /_// /_\\\\//__/ /\\  /\n")
 	terminalHeader += ("\\____|___/\\_/ \\_/___,'\\____/\\__/\\_\\ \\/\n\n")
+	terminalHeader += ("HOME: https://github.com/infinilabs/loadgen/\n\n")
 
 	terminalFooter := ("")
 
-	app := framework.NewApp("loadgen", "A http load generator and testing suite.",
+	app := framework.NewApp("loadgen", "A http load generator and testing suite, open-sourced under the GNU AGPLv3.",
 		config.Version, config.BuildNumber, config.LastCommitLog, config.BuildDate, config.EOLDate, terminalHeader, terminalFooter)
 
 	app.IgnoreMainConfigMissing()
