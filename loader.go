@@ -223,7 +223,7 @@ func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Reques
 					}
 					condition, buildErr := conditions.NewCondition(item.Assert)
 					if buildErr != nil {
-						if config.RunnerConfig.SkipInvalidAssert{
+						if config.RunnerConfig.SkipInvalidAssert {
 							loadStats.NumAssertSkipped++
 							continue
 						}
@@ -482,8 +482,8 @@ func (cfg *LoadGenerator) Warmup(config *LoaderConfig) int {
 	for _, v := range config.Requests {
 		v.prepareRequest(config, globalCtx, req)
 
-		if !req.Validate(){
-			log.Errorf("invalid request: %v",req.String())
+		if !req.Validate() {
+			log.Errorf("invalid request: %v", req.String())
 			panic("invalid request")
 		}
 
