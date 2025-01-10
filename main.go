@@ -33,11 +33,12 @@ import (
 	E "errors"
 	"flag"
 	"fmt"
-	"github.com/jamiealquiza/tachymeter"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
+
+	"github.com/jamiealquiza/tachymeter"
 
 	log "github.com/cihub/seelog"
 	wasm "github.com/tetratelabs/wazero"
@@ -99,8 +100,8 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 	}
 
 	//override the total
-	if totalRounds>0{
-		cfg.RunnerConfig.TotalRounds=totalRounds
+	if totalRounds > 0 {
+		cfg.RunnerConfig.TotalRounds = totalRounds
 	}
 
 	// Initialize tachymeter.
@@ -202,7 +203,7 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 	if cfg.RunnerConfig.NoSizeStats {
 		fmt.Printf("\n%v requests finished in %v\n", aggStats.NumRequests, avgThreadDur)
 	} else {
-		fmt.Printf("\n%v requests finished in %v, %v sent, %v received\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{float64(aggStats.TotReqSize)}, util.ByteValue{float64(aggStats.TotRespSize)})
+		fmt.Printf("\n%v requests finished in %v, %v sent, %v received\n", aggStats.NumRequests, avgThreadDur, util.ByteValue{Size: float64(aggStats.TotReqSize)}, util.ByteValue{Size: float64(aggStats.TotRespSize)})
 	}
 
 	fmt.Println("\n[Loadgen Client Metrics]")
@@ -213,8 +214,8 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 		fmt.Printf(
 			"Request Traffic/sec:\t%v\n"+
 				"Total Transfer/sec:\t%v\n",
-			util.ByteValue{roughReqBytesRate},
-			util.ByteValue{roughBytesRate})
+			util.ByteValue{Size: roughReqBytesRate},
+			util.ByteValue{Size: roughBytesRate})
 	}
 
 	fmt.Printf("Fastest Request:\t%v\n", aggStats.MinRequestTime)
@@ -244,7 +245,7 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 
 	fmt.Printf("\n[Estimated Server Metrics]\nRequests/sec:\t\t%.2f\nAvg Req Time:\t\t%v\n", reqRate, avgReqTime)
 	if !cfg.RunnerConfig.BenchmarkOnly && !cfg.RunnerConfig.NoSizeStats {
-		fmt.Printf("Transfer/sec:\t\t%v\n", util.ByteValue{bytesRate})
+		fmt.Printf("Transfer/sec:\t\t%v\n", util.ByteValue{Size: bytesRate})
 	}
 
 	fmt.Println("")
