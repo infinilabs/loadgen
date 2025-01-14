@@ -63,10 +63,6 @@ jobs:
                 cd $WORK
                 echo Formating code at $PWD ...
                 make format
-                if [ $? -ne 0 ]; then
-                  echo "make format failed, please check make output"
-                  exit 1
-                fi
 
             - name: Check for changes after format
               id: check-changes
@@ -188,7 +184,7 @@ jobs:
                 ls -lrt $WORKBASE/
                 ls -alrt $WORK
 
-                # for unit test
+                # for code lint
                 cd $WORK
                 echo Linting code at $PWD ...
                 make lint
