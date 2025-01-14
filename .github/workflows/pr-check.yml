@@ -59,7 +59,7 @@ jobs:
                 ls -lrt $WORKBASE/
                 ls -alrt $WORK
 
-                # for unit test
+                # for formatting code
                 cd $WORK
                 echo Formating code at $PWD ...
                 make format
