@@ -10,7 +10,7 @@ defaults:
 
 env:
     GO_VERSION: 1.23.4
-    PNAME: agent
+    PNAME: loadgen
 
 jobs:
     format_check:
