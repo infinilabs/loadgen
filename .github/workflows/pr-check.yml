@@ -13,19 +13,17 @@ env:
     PNAME: loadgen
 
 jobs:
-    unit_test:
+    format_check:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout current repository
               uses: actions/checkout@v4
               with:
-                fetch-depth: 0
                 path: ${{ env.PNAME }}
 
             - name: Checkout framework repository
               uses: actions/checkout@v4
               with:
-                fetch-depth: 0
                 repository: infinilabs/framework
                 path: framework
 
@@ -33,7 +31,88 @@ jobs:
               uses: actions/checkout@v4
               with:
                 ref: main
-                fetch-depth: 0
+                repository: infinilabs/framework-vendor
+                path: vendor
+
+            - name: Set up go toolchain
+              uses: actions/setup-go@v5
+              with:
+                go-version: ${{ env.GO_VERSION }}
+                check-latest: false
+                cache: true
+
+            - name: Check go toolchain
+              run: go version
+              
+            - name: Run make format
+              shell: bash
+              run: |
+                echo Home path is $HOME
+                export WORKBASE=$HOME/go/src/infini.sh
+                export WORK=$WORKBASE/$PNAME
+
+                # for test workspace
+                mkdir -p $HOME/go/src/
+                ln -s $GITHUB_WORKSPACE $WORKBASE
+                
+                # check work folder
+                ls -lrt $WORKBASE/
+                ls -alrt $WORK
+
+                # for formatting code
+                cd $WORK
+                echo Formating code at $PWD ...
+                make format
+
+            - name: Check for changes after format
+              id: check-changes
+              shell: bash
+              run: |
+                export WORKBASE=$HOME/go/src/infini.sh
+                export WORK=$WORKBASE/$PNAME
+
+                # for foramt check
+                cd $WORK
+                if [[ $(git status --porcelain | grep -c " M .*\.go$") -gt 0 ]]; then
+                  echo "go format detected formatting changes"
+                  echo "changes=true" >> $GITHUB_OUTPUT
+                else
+                  echo "go format no changes found"
+                  echo "changes=false" >> $GITHUB_OUTPUT
+                fi
+            
+            - name: Fail workflow if changes after format
+              if: steps.check-changes.outputs.changes == 'true'
+              run: |
+                export WORKBASE=$HOME/go/src/infini.sh
+                export WORK=$WORKBASE/$PNAME
+
+                # for foramt check
+                cd $WORK && echo
+                git status --porcelain | grep " M .*\.go$"
+                echo "----------------------------------------------------------------------------------"
+                echo "IMPORTANT: Above files are not formatted, please run 'make format' to format them."
+                echo "----------------------------------------------------------------------------------"
+                exit 1
+
+    unit_test:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout current repository
+              uses: actions/checkout@v4
+              with:
+                path: ${{ env.PNAME }}
+
+            - name: Checkout framework repository
+              uses: actions/checkout@v4
+              with:
+                repository: infinilabs/framework
+                path: framework
+
+            - name: Checkout framework-vendor
+              uses: actions/checkout@v4
+              with:
+                ref: main
                 repository: infinilabs/framework-vendor
                 path: vendor
 
@@ -74,13 +153,11 @@ jobs:
             - name: Checkout current repository
               uses: actions/checkout@v4
               with:
-                fetch-depth: 0
                 path: ${{ env.PNAME }}
 
             - name: Checkout framework repository
               uses: actions/checkout@v4
               with:
-                fetch-depth: 0
                 repository: infinilabs/framework
                 path: framework
 
@@ -88,7 +165,6 @@ jobs:
               uses: actions/checkout@v4
               with:
                 ref: main
-                fetch-depth: 0
                 repository: infinilabs/framework-vendor
                 path: vendor
 
@@ -118,7 +194,7 @@ jobs:
                 ls -lrt $WORKBASE/
                 ls -alrt $WORK
 
-                # for unit test
+                # for code lint
                 cd $WORK
                 echo Linting code at $PWD ...
                 make lint
