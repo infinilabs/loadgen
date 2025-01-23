@@ -2,5 +2,5 @@
 headless: true
 ---
 
-- [**Documentation**]({{< relref "/docs/" >}})
-<br />
+- [**文档**]({{< relref "/docs/" >}})
+  <br />
