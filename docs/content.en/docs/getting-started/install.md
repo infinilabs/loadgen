@@ -16,13 +16,63 @@ INFINI Loadgen supports mainstream operating systems and platforms. The program 
 curl -sSL http://get.infini.cloud | bash -s -- -p loadgen
 ```
 
-> The above script can automatically download the latest version of the corresponding platform's loadgen and extract it to /opt/loadgen
+The above script can automatically download the latest version of the corresponding platform's loadgen and extract it to /opt/loadgen
 
-> The optional parameters for the script are as follows:
+The optional parameters for the script are as follows:
 
-> &nbsp;&nbsp;&nbsp;&nbsp;_-v [version number]（Default to use the latest version number）_
+> _-v [version number]（Default to use the latest version number）_  
+> _-d [installation directory] (default installation to /opt/loadgen)_
 
-> &nbsp;&nbsp;&nbsp;&nbsp;_-d [installation directory] (default installation to /opt/loadgen)_
+```bash
+➜  /tmp mkdir loadgen
+➜  /tmp curl -sSL http://get.infini.cloud | bash -s -- -p loadgen -d /tmp/loadgen
+
+                                 @@@@@@@@@@@
+                                @@@@@@@@@@@@
+                                @@@@@@@@@@@@
+                               @@@@@@@@@&@@@
+                              #@@@@@@@@@@@@@
+        @@@                   @@@@@@@@@@@@@
+       &@@@@@@@              &@@@@@@@@@@@@@
+       @&@@@@@@@&@           @@@&@@@@@@@&@
+      @@@@@@@@@@@@@@@@      @@@@@@@@@@@@@@
+      @@@@@@@@@@@@@@@@@@&   @@@@@@@@@@@@@
+        %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+            @@@@@@@@@@@@&@@@@@@@@@@@@@@@
+    @@         ,@@@@@@@@@@@@@@@@@@@@@@@&
+    @@@@@.         @@@@@&@@@@@@@@@@@@@@
+   @@@@@@@@@@          @@@@@@@@@@@@@@@#
+   @&@@@&@@@&@@@          &@&@@@&@@@&@
+  @@@@@@@@@@@@@.              @@@@@@@*
+  @@@@@@@@@@@@@                  %@@@
+ @@@@@@@@@@@@@
+/@@@@@@@&@@@@@
+@@@@@@@@@@@@@
+@@@@@@@@@@@@@
+@@@@@@@@@@@@        Welcome to INFINI Labs!
+
+
+Now attempting the installation...
+
+Name: [loadgen], Version: [1.26.1-598], Path: [/tmp/loadgen]
+File: [https://release.infinilabs.com/loadgen/stable/loadgen-1.26.1-598-mac-arm64.zip]
+##=O#- #
+
+Installation complete. [loadgen] is ready to use!
+
+
+----------------------------------------------------------------
+cd /tmp/loadgen && ./loadgen-mac-arm64
+----------------------------------------------------------------
+
+
+   __ _  __ ____ __ _  __ __
+  / // |/ // __// // |/ // /
+ / // || // _/ / // || // /
+/_//_/|_//_/  /_//_/|_//_/
+
+©INFINI.LTD, All Rights Reserved.
+```
 
 **Manual install**
 
