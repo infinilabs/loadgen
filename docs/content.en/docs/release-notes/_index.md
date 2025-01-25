@@ -7,12 +7,6 @@ title: "Release Notes"
 
 Information about release notes of INFINI Loadgen is provided here.
 
-## 1.28.0 (2025-01-11)
-
-### Improvements
-
-- Synchronize updates for known issues fixed in the Framework.
-
 ## 1.27.0 (2024-12-13)
 
 ### Improvements
