@@ -7,6 +7,12 @@ title: "版本历史"
 
 这里是`loadgen`历史版本发布的相关说明。
 
+## Latest (In development)  
+### Breaking changes  
+### Features  
+### Bug fix  
+### Improvements  
+
 ## 1.29.0 (2025-02-28)
 
 - 同步更新 Framework 修复的一些已知问题
