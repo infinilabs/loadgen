@@ -13,6 +13,12 @@ Information about release notes of INFINI Loadgen is provided here.
 ### Bug fix  
 ### Improvements  
 
+## 1.29.1 (2025-03-14)
+### Breaking changes  
+### Features  
+### Bug fix  
+### Improvements  
+
 ## 1.29.0 (2025-02-28)
 
 ### Improvements
