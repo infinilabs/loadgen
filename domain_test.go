@@ -25,7 +25,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/valyala/fasttemplate"
+	"infini.sh/framework/lib/fasttemplate"
 	"io"
 	"log"
 	"math/rand"
