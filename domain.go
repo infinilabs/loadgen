@@ -38,7 +38,7 @@ import (
 
 	"github.com/RoaringBitmap/roaring"
 	log "github.com/cihub/seelog"
-	"github.com/valyala/fasttemplate"
+	"infini.sh/framework/lib/fasttemplate"
 
 	"infini.sh/framework/core/conditions"
 	"infini.sh/framework/core/errors"
