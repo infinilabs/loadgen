@@ -13,6 +13,12 @@ Information about release notes of INFINI Loadgen is provided here.
 ### 🐛 Bug fix  
 ### ✈️ Improvements  
 
+## 1.29.6 (2025-06-13)
+### ❌ Breaking changes  
+### 🚀 Features  
+### 🐛 Bug fix  
+### ✈️ Improvements  
+
 ## 1.29.4 (2025-05-16)
 ### ✈️ Improvements  
 - This release includes updates from the underlying [Framework v1.1.7](https://docs.infinilabs.com/framework/v1.1.7/docs/references/http_client/), which resolves several common issues and enhances overall stability and performance. While there are no direct changes to Gateway itself, the improvements inherited from Framework benefit Loadgen indirectly.
