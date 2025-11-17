@@ -274,8 +274,16 @@ func buildCtx(resp *fasthttp.Response, respBody []byte, duration time.Duration) 
 			"elapsed": int64(duration / time.Millisecond),
 		},
 	}
+
+	bodyJsonArray := []map[string]interface{}{}
+	jsonErr := json.Unmarshal(respBody, &bodyJsonArray)
+	if jsonErr == nil && len(bodyJsonArray) > 0 {
+		event.Put("_ctx.response.body_json", bodyJsonArray)
+		return event
+	}
+
 	bodyJson := map[string]interface{}{}
-	jsonErr := json.Unmarshal(respBody, &bodyJson)
+	jsonErr = json.Unmarshal(respBody, &bodyJson)
 	if jsonErr == nil {
 		event.Put("_ctx.response.body_json", bodyJson)
 	}
