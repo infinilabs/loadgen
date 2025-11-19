@@ -13,6 +13,13 @@ Information about release notes of INFINI Loadgen is provided here.
 ### 🐛 Bug fix  
 ### ✈️ Improvements  
 
+## 1.30.0 (2025-11-19)
+### ❌ Breaking changes  
+### 🚀 Features  
+### 🐛 Bug fix  
+### ✈️ Improvements  
+- This release includes updates from the underlying [Framework v1.2.0](https://docs.infinilabs.com/framework/v1.2.0), which resolves several common issues and enhances overall stability and performance. While there are no direct changes to Loadgen itself, the improvements inherited from Framework benefit Loadgen indirectly.
+
 ## 1.29.8 (2025-07-25)
 ### ❌ Breaking changes  
 ### 🚀 Features  
