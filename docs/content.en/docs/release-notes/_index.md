@@ -16,6 +16,7 @@ Information about release notes of INFINI Loadgen is provided here.
 ## 1.30.0 (2025-11-19)
 ### ❌ Breaking changes  
 ### 🚀 Features  
+- feat: support array for _ctx.response.body_json #41
 ### 🐛 Bug fix  
 ### ✈️ Improvements  
 - This release includes updates from the underlying [Framework v1.3.0](https://docs.infinilabs.com/framework/v1.3.0), which resolves several common issues and enhances overall stability and performance. While there are no direct changes to Loadgen itself, the improvements inherited from Framework benefit Loadgen indirectly.
