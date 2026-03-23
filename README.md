@@ -392,7 +392,7 @@ Usage of ./bin/loadgen:
   -v	version
 ```
 
-Timeout-related flags default to `0`, meaning no timeout unless you provide an explicit value.
+Timeout-related flags default to `0` (no timeout). Earlier documentation referenced a 60s default, but current binaries use the `0` default shown here—set a timeout explicitly if you need one.
 
 When using `tests` to orchestrate multiple suites, each entry can set `compress: true` to mirror the CLI `-compress` flag for that test directory.
 

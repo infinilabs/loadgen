@@ -411,7 +411,7 @@ Usage of loadgen:
       Connection write timeout in seconds, default 0s (inherits -timeout when set)
 ```
 
-Timeout-related flags default to `0`, so requests have no timeout unless you provide an explicit value.
+Timeout-related flags default to `0` (no timeout). Older docs mentioned a 60s default; current binaries use the `0` default shown here, so set an explicit timeout if you need one.
 
 When orchestrating multiple suites via `tests`, each entry can specify a `path` and optional `compress: true` to mirror the CLI `-compress` flag for that suite.
 
