@@ -145,6 +145,16 @@ POST $[[env.ES_ENDPOINT]]/medcl/_search
 
 By default, Loadgen runs in performance testing mode, repeating all requests in `requests` for the specified duration (`-d`). If you only need to check the test results once, you can set the number of executions of `requests` by `runner.total_rounds`.
 
+Other helpful runner options:
+
+- `benchmark_only`: Render and print requests without sending them (dry run).
+- `duration_in_us`: Report request durations in microseconds instead of milliseconds.
+- `metric_sample_size`: Sample size for latency statistics (defaults to 10000 if unset).
+- `no_stats` / `no_size_stats`: Suppress aggregated statistics or payload size statistics.
+- `continue_on_assert_invalid`: Continue even when assertions fail.
+- `skip_invalid_assert`: Ignore assertion checks entirely.
+- `default_endpoint` / `default_basic_auth`: Provide fallback endpoint or credentials for requests that omit them.
+
 ### HTTP Header Handling
 
 By default, Loadgen will automatically format the HTTP response headers (`user-agent: xxx` -> `User-Agent: xxx`). If you need to precisely determine the response headers returned by the server, you can disable this behavior by setting `runner.disable_header_names_normalizing`.
@@ -166,7 +176,11 @@ In the above configuration, `variables` is used to define variable parameters, i
 | `now_utc`         | Current time, UTC time zone. Output format: `2006-01-02 15:04:05.999999999 -0700 MST`                           |                                                                                                                                                                                                                                                                 |
 | `now_utc_lite`    | Current time, UTC time zone. Output format: `2006-01-02T15:04:05.000`                                           |                                                                                                                                                                                                                                                                 |
 | `now_unix`        | Current time, Unix timestamp                                                                                    |                                                                                                                                                                                                                                                                 |
+| `now_unix_in_ms`  | Current time, Unix timestamp in milliseconds                                                                    |                                                                                                                                                                                                                                                                 |
+| `now_unix_in_micro` | Current time, Unix timestamp in microseconds                                                                  |                                                                                                                                                                                                                                                                 |
+| `now_unix_in_nano` | Current time, Unix timestamp in nanoseconds                                                                    |                                                                                                                                                                                                                                                                 |
 | `now_with_format` | Current time, supports custom `format` parameter to format the time string, such as: `2006-01-02T15:04:05-0700` | `format`: output time format ([example](https://www.geeksforgeeks.org/time-formatting-in-golang/))                                                                                                                                                              |
+| `int_array_bitmap` | Random bitmap of integers in the range [`from`, `to`], encoded as Base64                                      | `from`: minimum value<br>`to`: maximum value<br>`size`: how many integers to include in the bitmap                                                                                                                                                              |
 
 ### Variable Usage Example
 
@@ -288,6 +302,13 @@ GET $[[env.ES_ENDPOINT]]/test
 # assert: (200, {}),
 ```
 
+Additional request controls:
+
+- `simple_mode: true` skips template rendering for static payloads.
+- `execute_repeat_times` repeats the same request multiple times within a single round.
+- `assert_dsl` allows assertions in DSL text form; `assert` keeps the structured map syntax.
+- `sleep` pauses between requests, for example: `sleep: { sleep_in_milli_seconds: 500 }`.
+
 ## Running the Benchmark
 
 Run the Loadgen program to perform the benchmark test as follows:
@@ -350,7 +371,7 @@ Usage of loadgen:
   -c int
       Number of concurrent threads (default 1)
   -compress
-      Compress requests with gzip
+      Enable gzip compression for requests
   -config string
       the location of config file (default "loadgen.yml")
   -cpu int
@@ -360,13 +381,15 @@ Usage of loadgen:
   -debug
       run in debug mode, loadgen will quit on panic immediately with full stack trace
   -dial-timeout int
-      Connection dial timeout in seconds, default 3s (default 3)
+      Connection dial timeout in seconds (default 3)
   -gateway-log string
       Log level of Gateway (default "debug")
   -l int
       Limit total requests (default -1)
   -log string
       the log level, options: trace,debug,info,warn,error,off
+  -mixed
+      Enable mixed requests from YAML/DSL
   -mem int
       the max size of Memory to use, soft limit in megabyte (default -1)
   -plugin value
@@ -374,17 +397,21 @@ Usage of loadgen:
   -r int
       Max requests per second (fixed QPS) (default -1)
   -read-timeout int
-      Connection read timeout in seconds, default 0s (use -timeout)
+      Connection read timeout in seconds, default 0s (inherits -timeout when set)
   -run string
       DSL config to run tests (default "loadgen.dsl")
   -service string
       service management, options: install,uninstall,start,stop
   -timeout int
-      Request timeout in seconds, default 60s (default 60)
+      Request timeout in seconds, default 0s (no timeout)
+  -total-rounds int
+      Number of rounds for each request configuration (default -1, unlimited)
   -v  version
   -write-timeout int
-      Connection write timeout in seconds, default 0s (use -timeout)
+      Connection write timeout in seconds, default 0s (inherits -timeout when set)
 ```
+
+When orchestrating multiple suites via `tests`, each entry can specify a `path` and optional `compress: true` to mirror the CLI `-compress` flag for that suite.
 
 ### Limiting Client Workload
 

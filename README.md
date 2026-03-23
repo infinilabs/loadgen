@@ -115,6 +115,16 @@ requests:
 
 By default, `loadgen` will run under the benchmarking mode, repeating through all the `requests` during the specified duration (`-d`). If you only need to test the responses, setting `runner.total_rounds: 1` will let `loadgen` run for only once.
 
+Other useful runner options:
+
+- `benchmark_only`: Render and print the requests without sending them (dry run).
+- `duration_in_us`: Report request durations in microseconds instead of milliseconds.
+- `metric_sample_size`: Sample size for latency statistics (default: 10000 when unset).
+- `no_stats` / `no_size_stats`: Suppress overall statistics or size statistics in the summary.
+- `continue_on_assert_invalid`: Keep running even when an assertion fails.
+- `skip_invalid_assert`: Ignore assertion checks.
+- `default_endpoint` / `default_basic_auth`: Provide fallback endpoint or auth for requests that omit them.
+
 ### HTTP Headers Canonization
 
 By default, `loadgen` will canonilize the HTTP response header keys received from the server side (`user-agent: xxx` -> `User-Agent: xxx`). If you need to assert the header keys exactly, you can set `runner.disable_header_names_normalizing: true` to disable this behavior.
@@ -135,7 +145,11 @@ In the above configuration, `variables` is used to define variable parameters an
 | `now_local`       | Current time and local time zone                                                                         |                                                                                                                                                                                                                                                |
 | `now_utc`         | Current time and UTC time zone                                                                           |                                                                                                                                                                                                                                                |
 | `now_unix`        | Current time and Unix timestamp                                                                          |                                                                                                                                                                                                                                                |
+| `now_unix_in_ms`  | Current time and Unix timestamp in milliseconds                                                         |                                                                                                                                                                                                                                                |
+| `now_unix_in_micro` | Current time and Unix timestamp in microseconds                                                       |                                                                                                                                                                                                                                                |
+| `now_unix_in_nano` | Current time and Unix timestamp in nanoseconds                                                         |                                                                                                                                                                                                                                                |
 | `now_with_format` | Current time，support parameter `format` to customize the output format， eg: `2006-01-02T15:04:05-0700` | `format`: the format of the time output ([Example](https://www.geeksforgeeks.org/time-formatting-in-golang/))                                                                                                                                  |
+| `int_array_bitmap` | Random bitmap of integers in the range [`from`, `to`], encoded as Base64                              | `from`: minimum value<br>`to`: maximum value<br>`size`: how many integers to include in the bitmap                                                                                                                                             |
 
 ### Examples
 
@@ -257,6 +271,13 @@ requests:
       - index_id: _ctx.response.body_json.test.settings.index.uuid
 ```
 
+Additional request controls:
+
+- `simple_mode: true` skips template rendering for static payloads.
+- `execute_repeat_times` repeats the same request multiple times within a single round.
+- `assert_dsl` lets you supply assertions in DSL text form; `assert` keeps the structured map syntax.
+- `sleep` pauses between requests, for example: `sleep: { sleep_in_milli_seconds: 500 }`.
+
 ### Benchmark Test
 
 Run Loadgen to perform the benchmark test as follows:
@@ -339,23 +360,39 @@ Loadgen cyclically executes requests defined in the configuration file. By defau
 ➜  loadgen git:(master) ✗ ./bin/loadgen --help
 Usage of ./bin/loadgen:
   -c int
-    	Number of concurrent threads (default 1)
+     	Number of concurrent threads (default 1)
   -compress
-    	Compress requests with gzip
+     	Enable gzip compression for requests
   -config string
-    	the location of config file, default: loadgen.yml (default "loadgen.yml")
+     	the location of config file, default: loadgen.yml (default "loadgen.yml")
+  -dial-timeout int
+     	Connection dial timeout in seconds (default 3)
   -d int
-    	Duration of tests in seconds (default 5)
+     	Duration of tests in seconds (default 5)
   -debug
-    	run in debug mode, loadgen will quit with panic error
+     	run in debug mode, loadgen will quit with panic error
+  -mixed
+     	Enable mixed requests from YAML/DSL
   -l int
-    	Limit total requests (default -1)
+     	Limit total requests (default -1)
   -log string
-    	the log level,options:trace,debug,info,warn,error (default "info")
+     	the log level,options:trace,debug,info,warn,error (default "info")
   -r int
-    	Max requests per second (fixed QPS) (default -1)
+     	Max requests per second (fixed QPS) (default -1)
+  -read-timeout int
+     	Connection read timeout in seconds, default 0s (inherits -timeout when set)
+  -run string
+     	DSL config to run tests (default "loadgen.dsl")
+  -timeout int
+     	Request timeout in seconds, default 0s (no timeout)
+  -total-rounds int
+     	Number of rounds for each request configuration (default -1, unlimited)
+  -write-timeout int
+     	Connection write timeout in seconds, default 0s (inherits -timeout when set)
   -v	version
 ```
+
+When using `tests` to orchestrate multiple suites, each entry can set `compress: true` to mirror the CLI `-compress` flag for that test directory.
 
 ### Limiting the Client Workload
 
