@@ -149,7 +149,7 @@ Other helpful runner options:
 
 - `benchmark_only`: Render and print requests without sending them (dry run).
 - `duration_in_us`: Report request durations in microseconds instead of milliseconds.
-- `metric_sample_size`: Sample size for latency statistics (defaults to 10000 if unset).
+- `metric_sample_size`: Sample size for latency statistics (default: 10000).
 - `no_stats` / `no_size_stats`: Suppress aggregated statistics or payload size statistics.
 - `continue_on_assert_invalid`: Continue even when assertions fail.
 - `skip_invalid_assert`: Ignore assertion checks entirely.
@@ -411,7 +411,7 @@ Usage of loadgen:
       Connection write timeout in seconds, default 0s (inherits -timeout when set)
 ```
 
-Timeout-related flags default to `0`, so requests are unlimited unless you provide an explicit value.
+Timeout-related flags default to `0`, so requests have no timeout unless you provide an explicit value.
 
 When orchestrating multiple suites via `tests`, each entry can specify a `path` and optional `compress: true` to mirror the CLI `-compress` flag for that suite.
 

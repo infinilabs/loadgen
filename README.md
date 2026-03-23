@@ -119,7 +119,7 @@ Other useful runner options:
 
 - `benchmark_only`: Render and print the requests without sending them (dry run).
 - `duration_in_us`: Report request durations in microseconds instead of milliseconds.
-- `metric_sample_size`: Sample size for latency statistics (default: 10000 when unset).
+- `metric_sample_size`: Sample size for latency statistics (default: 10000).
 - `no_stats` / `no_size_stats`: Suppress overall statistics or size statistics in the summary.
 - `continue_on_assert_invalid`: Keep running even when an assertion fails.
 - `skip_invalid_assert`: Ignore assertion checks.
@@ -392,7 +392,7 @@ Usage of ./bin/loadgen:
   -v	version
 ```
 
-Timeout-related flags default to `0`, meaning no limit unless you provide an explicit value.
+Timeout-related flags default to `0`, meaning no timeout unless you provide an explicit value.
 
 When using `tests` to orchestrate multiple suites, each entry can set `compress: true` to mirror the CLI `-compress` flag for that test directory.
 
