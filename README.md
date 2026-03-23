@@ -392,6 +392,8 @@ Usage of ./bin/loadgen:
   -v	version
 ```
 
+Timeout-related flags default to `0`, meaning no limit unless you provide an explicit value.
+
 When using `tests` to orchestrate multiple suites, each entry can set `compress: true` to mirror the CLI `-compress` flag for that test directory.
 
 ### Limiting the Client Workload

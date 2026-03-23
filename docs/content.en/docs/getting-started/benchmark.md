@@ -411,6 +411,8 @@ Usage of loadgen:
       Connection write timeout in seconds, default 0s (inherits -timeout when set)
 ```
 
+Timeout-related flags default to `0`, so requests are unlimited unless you provide an explicit value.
+
 When orchestrating multiple suites via `tests`, each entry can specify a `path` and optional `compress: true` to mirror the CLI `-compress` flag for that suite.
 
 ### Limiting Client Workload
