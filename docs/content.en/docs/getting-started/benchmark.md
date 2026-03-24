@@ -328,7 +328,7 @@ POST $[[env.ES_ENDPOINT]]/session/$[[session_id]]/event
 # }
 ```
 
-**Custom headers with rate limiting and retries**
+**Custom headers with repeated execution**
 
 ```text
 # runner: {
