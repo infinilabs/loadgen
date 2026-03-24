@@ -452,7 +452,7 @@ Usage of loadgen:
       Connection write timeout in seconds, default 0s (inherits -timeout when set)
 ```
 
-Note: Previous documentation referenced a 60s default timeout, but current versions default to `0` (no timeout). Set an explicit timeout value if needed.
+Note: Previous documentation referenced a 60s default timeout, but current versions default to `0` (no timeout). Set an explicit timeout value if needed. The current default comes from the flag initialization in `main.go`, which sets `-timeout` to `0` unless overridden.
 
 When orchestrating multiple suites via `tests`, each entry can specify a `path` and optional `compress: true` to mirror the CLI `-compress` flag for that suite.
 
