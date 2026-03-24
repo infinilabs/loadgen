@@ -392,8 +392,7 @@ Usage of ./bin/loadgen:
   -v	version
 ```
 
-Note: Previous documentation referenced a 60s default timeout, but current versions default to `0` (no timeout). Set an explicit timeout value if needed.
-Current default comes from the flag initialization in `main.go`, which sets `-timeout` to `0` unless overridden.
+Note: Previous documentation referenced a 60s default timeout; as of the current source (1.0.0_SNAPSHOT), the default is `0` (no timeout). Current default comes from the flag initialization in `main.go`, which sets `-timeout` to `0` unless overridden.
 
 When using `tests` to orchestrate multiple suites, each entry can set `compress: true` to mirror the CLI `-compress` flag for that test directory.
 
