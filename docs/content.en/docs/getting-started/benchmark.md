@@ -309,6 +309,47 @@ Additional request controls:
 - `assert_dsl` allows assertions in DSL text form; `assert` keeps the structured map syntax.
 - `sleep` pauses between requests, for example: `sleep: { sleep_in_milli_seconds: 500 }`.
 
+### More Examples
+
+**Chained requests with register and sleep**
+
+```text
+GET $[[env.ES_ENDPOINT]]/session/start
+# register: [
+#   {session_id: "_ctx.response.body_json.session.id"},
+# ]
+# sleep: { sleep_in_milli_seconds: 300 }
+
+POST $[[env.ES_ENDPOINT]]/session/$[[session_id]]/event
+{"event": "page_view", "user": "$[[user]]"}
+# assert: {
+#   _ctx.response.status: 200,
+#   _ctx.response.body_json.result: "ok",
+# }
+```
+
+**Custom headers with rate limiting and retries**
+
+```text
+# runner: {
+#   total_rounds: 1,
+#   log_requests: true,
+#   continue_on_assert_invalid: true,
+# }
+
+GET $[[env.ES_ENDPOINT]]/api/ping
+# request: {
+#   headers: [
+#     {"X-Trace-Id": "$[[uuid]]"},
+#     {"X-Client": "loadgen-demo"},
+#   ],
+#   execute_repeat_times: 3,
+# }
+# assert: {
+#   _ctx.response.status: 200,
+# }
+```
+
 ## Running the Benchmark
 
 Run the Loadgen program to perform the benchmark test as follows:
