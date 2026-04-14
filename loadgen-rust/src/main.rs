@@ -27,7 +27,7 @@
 
 use anyhow::Result;
 use clap::Parser;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -242,7 +242,7 @@ async fn main() -> ExitCode {
 
 async fn run_dsl_file(
     config: &loadgen::AppConfig,
-    path: &PathBuf,
+    path: &Path,
     cli_options: &loadgen::loader::generator::CliOptions,
     interrupted: Arc<AtomicBool>,
 ) -> Result<i32> {
