@@ -1,0 +1,1 @@
+&parking_lot::lock_api::MutexGuard<'_, parking_lot::RawMutex, Histogram<u64>>: Borrow<Histogram<u64>>
