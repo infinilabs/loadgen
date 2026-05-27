@@ -12,6 +12,7 @@ Information about release notes of INFINI Loadgen is provided here.
 ### 🚀 Features  
 ### 🐛 Bug fix  
 ### ✈️ Improvements  
+- Add native Go modules support for Loadgen, including local module wiring to the sibling Framework checkout and PR checks that follow the Go version declared in `go.mod`.
 
 ## 1.30.1 (2025-12-19)
 ### ❌ Breaking changes  

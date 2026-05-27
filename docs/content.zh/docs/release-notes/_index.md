@@ -12,6 +12,7 @@ title: "版本历史"
 ### 🚀 Features  
 ### 🐛 Bug fix  
 ### ✈️ Improvements  
+- 为 Loadgen 增加原生 Go Modules 支持，包括与同级 Framework 本地仓库的模块联动，以及按 `go.mod` 声明版本执行的 PR 检查。
 
 ## 1.30.1 (2025-12-19)
 ### ❌ Breaking changes  
