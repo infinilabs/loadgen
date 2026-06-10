@@ -1,81 +1,53 @@
 ---
 weight: 10
-title: Installing the Loadgen
-asciinema: true
+title: Installation
 ---
 
-# Installing the Loadgen
+# Installation
 
-INFINI Loadgen supports mainstream operating systems and platforms. The program package is small, with no extra external dependency. So, the loadgen can be installed very rapidly.
+INFINI Loadgen is a single-binary executable with no external dependencies. Supports Linux / macOS / Windows.
 
-## Downloading
-
-**Automatic install**
+## Automatic Install (Recommended)
 
 ```bash
 curl -sSL http://get.infini.cloud | bash -s -- -p loadgen
 ```
 
-The above script can automatically download the latest version of the corresponding platform's loadgen and extract it to /opt/loadgen
+Installs to `/opt/loadgen` by default. Optional parameters:
 
-The optional parameters for the script are as follows:
+| Parameter | Description |
+|-----------|-------------|
+| `-v <version>` | Specify version (defaults to latest) |
+| `-d <directory>` | Custom install path |
 
-> _-v [version number]（Default to use the latest version number）_  
-> _-d [installation directory] (default installation to /opt/loadgen)_
+Example: install to a custom directory
 
 ```bash
-➜  /tmp mkdir loadgen
-➜  /tmp curl -sSL http://get.infini.cloud | bash -s -- -p loadgen -d /tmp/loadgen
-
-                                 @@@@@@@@@@@
-                                @@@@@@@@@@@@
-                                @@@@@@@@@@@@
-                               @@@@@@@@@&@@@
-                              #@@@@@@@@@@@@@
-        @@@                   @@@@@@@@@@@@@
-       &@@@@@@@              &@@@@@@@@@@@@@
-       @&@@@@@@@&@           @@@&@@@@@@@&@
-      @@@@@@@@@@@@@@@@      @@@@@@@@@@@@@@
-      @@@@@@@@@@@@@@@@@@&   @@@@@@@@@@@@@
-        %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-            @@@@@@@@@@@@&@@@@@@@@@@@@@@@
-    @@         ,@@@@@@@@@@@@@@@@@@@@@@@&
-    @@@@@.         @@@@@&@@@@@@@@@@@@@@
-   @@@@@@@@@@          @@@@@@@@@@@@@@@#
-   @&@@@&@@@&@@@          &@&@@@&@@@&@
-  @@@@@@@@@@@@@.              @@@@@@@*
-  @@@@@@@@@@@@@                  %@@@
- @@@@@@@@@@@@@
-/@@@@@@@&@@@@@
-@@@@@@@@@@@@@
-@@@@@@@@@@@@@
-@@@@@@@@@@@@        Welcome to INFINI Labs!
-
-
-Now attempting the installation...
-
-Name: [loadgen], Version: [1.26.1-598], Path: [/tmp/loadgen]
-File: [https://release.infinilabs.com/loadgen/stable/loadgen-1.26.1-598-mac-arm64.zip]
-##=O#- #
-
-Installation complete. [loadgen] is ready to use!
-
-
-----------------------------------------------------------------
-cd /tmp/loadgen && ./loadgen-mac-arm64
-----------------------------------------------------------------
-
-
-   __ _  __ ____ __ _  __ __
-  / // |/ // __// // |/ // /
- / // || // _/ / // || // /
-/_//_/|_//_/  /_//_/|_//_/
-
-©INFINI.LTD, All Rights Reserved.
+curl -sSL http://get.infini.cloud | bash -s -- -p loadgen -d /usr/local/bin
 ```
 
-**Manual install**
+## Manual Install
 
-Select a package for downloading in the following URL based on your operating system and platform:
+Download the package for your OS and architecture:
 
-[https://release.infinilabs.com/loadgen/](https://release.infinilabs.com/loadgen/)
+> https://release.infinilabs.com/loadgen/
+
+After extraction you'll find:
+
+```
+loadgen              # Executable
+loadgen.yml          # Configuration template
+loadgen.dsl          # DSL test file template
+```
+
+## Verify Installation
+
+```bash
+loadgen -v
+```
+
+If the version number is printed, installation is successful.
+
+## Next Steps
+
+Head to [Quick Start]({{< relref "concepts" >}}) to run your first test.

@@ -18,6 +18,10 @@ Loadgen 的特点：
 
 > 下载地址：<https://release.infinilabs.com/loadgen/>
 
+如果你希望直接参考仓库内的实战样例（压测、变量、JSON 断言、语料驱动等），请继续阅读：
+
+- [使用场景与实战示例]({{< relref "/docs/getting-started/use-cases/" >}})
+
 ## Loadgen
 
 Loadgen 使用非常简单，下载解压之后会得到三个文件，一个可执行程序、一个配置文件 `loadgen.yml` 以及用于运行测试的 `loadgen.dsl`，配置文件样例如下：
@@ -144,6 +148,36 @@ POST $[[env.ES_ENDPOINT]]/medcl/_search
 ### 运行模式设置
 
 默认配置下，Loadgen 会以性能测试模式运行，在指定时间（`-d`）内重复执行 `requests` 里的所有请求。如果只需要检查一次测试结果，可以通过 `runner.total_rounds` 来设置 `requests` 的执行次数。
+
+### CLI 参数清单（常用）
+
+```bash
+loadgen -run loadgen.dsl -config loadgen.yml -d 60 -c 100 -r 1000 -l 50000 -timeout 60 -compress
+```
+
+常用命令参数：
+
+- `-run`
+- `-config`
+- `-d`
+- `-c`
+- `-r`
+- `-l`
+- `-compress`
+- `-timeout`
+- `-dial-timeout`
+- `-read-timeout`
+- `-write-timeout`
+- `-cpu`
+- `-mem`
+- `-log`
+- `-debug`
+
+使用建议：
+
+- 第一步先用 `runner.total_rounds: 1` 验证逻辑和断言
+- 第二步再开启时长与并发参数压测
+- 第三步固定 QPS 或总请求量做可对比基线
 
 ### HTTP 响应头处理
 

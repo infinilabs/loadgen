@@ -91,22 +91,9 @@ requests:
       runtime_body_line_variables:
         routing_no: uuid
       url: /_bulk
+      body_repeat_times: 5000
       body: |
         {"index": {"_index": "medcl", "_type": "_doc", "_id": "$[[uuid]]"}}
         {"id": "$[[id]]", "field1": "$[[list]]", "now_local": "$[[now_local]]", "now_unix": "$[[now_unix]]"}
         {"index": {"_index": "infinilabs", "_type": "_doc", "_id": "$[[uuid]]"}}
         {"id": "$[[id]]", "field1": "$[[list]]", "now_local": "$[[now_local]]", "now_unix": "$[[now_unix]]"}
-  - request: #search this index
-      method: POST
-      runtime_variables:
-        batch_no: uuid
-      runtime_body_line_variables:
-        routing_no: uuid
-      basic_auth: #override default auth
-        username: $[[env.ES_USERNAME]]
-        password: $[[env.ES_PASSWORD]]
-      url: $[[env.ES_ENDPOINT]]/medcl/_search #override with full request url
-      body: |
-        { "track_total_hits": true, "size": 0, "query": { "terms": { "patent_id": [ $[[id_list]] ] } } }
-
-  #add more requests

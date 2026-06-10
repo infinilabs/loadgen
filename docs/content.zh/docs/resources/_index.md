@@ -5,7 +5,7 @@ title: "其它资源"
 
 # 其它资源
 
-这里是一些和 Loadgen 有关的外部有用资源。
+与 Loadgen 相关的外部文章和视频资料。
 
 ## 文章
 
@@ -17,7 +17,7 @@ title: "其它资源"
 - [Loadgen 压测： Elasticsearch VS Easysearch 性能测试](https://infinilabs.cn/blog/2024/elasticsearch-vs-easysearch-stress-testing/) | 2024-12-19
 - [借助 DSL 来简化 Loadgen 配置](https://infinilabs.cn/blog/2023/simplify-loadgen-config-with-dsl/) | 2023-10-25
 - [如何使用 Loadgen 来简化 HTTP API 请求的集成测试](https://infinilabs.cn/blog/2023/integration-testing-with-loadgen/) | 2023-10-20
-- [更多文章 👉](https://infinilabs.cn/blog/)
+- [更多文章](https://infinilabs.cn/blog/)
 
 ## 视频
 
