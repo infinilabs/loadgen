@@ -1,81 +1,53 @@
 ---
 weight: 10
 title: 下载安装
-asciinema: true
 ---
 
-# 安装 INFINI Loadgen
+# 下载安装
 
-INFINI Loadgen 支持主流的操作系统和平台，程序包很小，没有任何额外的外部依赖，安装起来应该是很快的 ：）
+INFINI Loadgen 是单文件可执行程序，无外部依赖，支持 Linux / macOS / Windows。
 
-## 下载安装
-
-**自动安装**
+## 自动安装（推荐）
 
 ```bash
 curl -sSL http://get.infini.cloud | bash -s -- -p loadgen
 ```
 
-通过以上脚本可自动下载相应平台的 loadgen 最新版本并解压到/opt/loadgen
+默认安装到 `/opt/loadgen`。可选参数：
 
-脚本的可选参数如下：
+| 参数 | 说明 |
+|------|------|
+| `-v <版本号>` | 指定版本（默认最新） |
+| `-d <目录>` | 自定义安装路径 |
 
-> _-v [版本号]（默认采用最新版本号）_  
-> _-d [安装目录]（默认安装到/opt/loadgen）_
+示例：安装到指定目录
 
 ```bash
-➜  /tmp mkdir loadgen
-➜  /tmp curl -sSL http://get.infini.cloud | bash -s -- -p loadgen -d /tmp/loadgen
-
-                                 @@@@@@@@@@@
-                                @@@@@@@@@@@@
-                                @@@@@@@@@@@@
-                               @@@@@@@@@&@@@
-                              #@@@@@@@@@@@@@
-        @@@                   @@@@@@@@@@@@@
-       &@@@@@@@              &@@@@@@@@@@@@@
-       @&@@@@@@@&@           @@@&@@@@@@@&@
-      @@@@@@@@@@@@@@@@      @@@@@@@@@@@@@@
-      @@@@@@@@@@@@@@@@@@&   @@@@@@@@@@@@@
-        %@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-            @@@@@@@@@@@@&@@@@@@@@@@@@@@@
-    @@         ,@@@@@@@@@@@@@@@@@@@@@@@&
-    @@@@@.         @@@@@&@@@@@@@@@@@@@@
-   @@@@@@@@@@          @@@@@@@@@@@@@@@#
-   @&@@@&@@@&@@@          &@&@@@&@@@&@
-  @@@@@@@@@@@@@.              @@@@@@@*
-  @@@@@@@@@@@@@                  %@@@
- @@@@@@@@@@@@@
-/@@@@@@@&@@@@@
-@@@@@@@@@@@@@
-@@@@@@@@@@@@@
-@@@@@@@@@@@@        Welcome to INFINI Labs!
-
-
-Now attempting the installation...
-
-Name: [loadgen], Version: [1.26.1-598], Path: [/tmp/loadgen]
-File: [https://release.infinilabs.com/loadgen/stable/loadgen-1.26.1-598-mac-arm64.zip]
-##=O#- #
-
-Installation complete. [loadgen] is ready to use!
-
-
-----------------------------------------------------------------
-cd /tmp/loadgen && ./loadgen-mac-arm64
-----------------------------------------------------------------
-
-
-   __ _  __ ____ __ _  __ __
-  / // |/ // __// // |/ // /
- / // || // _/ / // || // /
-/_//_/|_//_/  /_//_/|_//_/
-
-©INFINI.LTD, All Rights Reserved.
+curl -sSL http://get.infini.cloud | bash -s -- -p loadgen -d /usr/local/bin
 ```
 
-**手动安装**
+## 手动安装
 
-根据您所在的操作系统和平台选择下面相应的下载地址：
+根据操作系统和架构下载对应包：
 
-[https://release.infinilabs.com/loadgen/](https://release.infinilabs.com/loadgen/)
+> https://release.infinilabs.com/loadgen/
+
+解压后得到：
+
+```
+loadgen              # 可执行文件
+loadgen.yml          # 配置文件模板
+loadgen.dsl          # DSL 测试文件模板
+```
+
+## 验证安装
+
+```bash
+loadgen -v
+```
+
+输出版本号即安装成功。
+
+## 下一步
+
+前往 [快速上手]({{< relref "concepts" >}}) 运行你的第一个测试。
