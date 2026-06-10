@@ -61,6 +61,29 @@ env:
 
 **引用方式：** `$[[env.ES_ENDPOINT]]`
 
+**IPv6 支持：**
+
+Loadgen 完整支持 IPv6 地址。使用标准方括号格式（`[ipv6地址]:端口`）即可：
+
+```yaml
+env:
+  ES_ENDPOINT: "http://[::1]:9200"
+  # 或使用实际 IPv6 地址：
+  # ES_ENDPOINT: "http://[fd00::1]:9200"
+  # 链路本地地址带 zone ID（URL 中 % 需编码为 %25）：
+  # ES_ENDPOINT: "http://[fe80::18df:9883:1e27:b040%25en0]:9200"
+```
+
+或通过命令行传入：
+
+```bash
+ES_ENDPOINT="http://[::1]:9200" loadgen -run loadgen.dsl -d 5 -c 2
+# 链路本地地址带 zone ID：
+ES_ENDPOINT="http://[fe81::18df:9883:1e27:b040%25en0]:9200" loadgen -run loadgen.dsl -d 5 -c 2
+```
+
+> **注意：** 对于带 zone ID 的链路本地 IPv6 地址（如 `fe80::1%en0`），URL 中的 `%` 必须编码为 `%25`。
+
 ---
 
 ## 运行控制（runner）

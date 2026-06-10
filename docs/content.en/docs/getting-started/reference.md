@@ -61,6 +61,29 @@ env:
 
 **Usage:** `$[[env.ES_ENDPOINT]]`
 
+**IPv6 Support:**
+
+Loadgen fully supports IPv6 addresses. Use standard bracket notation (`[ipv6addr]:port`) in URLs:
+
+```yaml
+env:
+  ES_ENDPOINT: "http://[::1]:9200"
+  # Or with a real IPv6 address:
+  # ES_ENDPOINT: "http://[fd00::1]:9200"
+  # Link-local address with zone ID (URL-encoded %25 for %):
+  # ES_ENDPOINT: "http://[fe80::18df:9883:1e27:b040%25en0]:9200"
+```
+
+Or from the command line:
+
+```bash
+ES_ENDPOINT="http://[::1]:9200" loadgen -run loadgen.dsl -d 5 -c 2
+# Link-local with zone ID:
+ES_ENDPOINT="http://[fe81::18df:9883:1e27:b040%25en0]:9200" loadgen -run loadgen.dsl -d 5 -c 2
+```
+
+> **Note:** For link-local IPv6 addresses with a zone ID (e.g. `fe80::1%en0`), the `%` must be URL-encoded as `%25` in the URL.
+
 ---
 
 ## Runner Configuration (runner)
