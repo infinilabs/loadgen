@@ -108,7 +108,7 @@ func NewLoadGenerator(duration int, goroutines int, statsAggregator chan *LoadSt
 	}
 	if dialTimeout > 0 {
 		httpClient.Dial = func(addr string) (net.Conn, error) {
-			return fasthttp.DialTimeout(addr, time.Duration(dialTimeout)*time.Second)
+			return fasthttp.DialDualStackTimeout(addr, time.Duration(dialTimeout)*time.Second)
 		}
 	}
 
