@@ -20,7 +20,7 @@ Loadgen 的特点：
 
 如果你希望直接参考仓库内的实战样例（压测、变量、JSON 断言、语料驱动等），请继续阅读：
 
-- [使用场景与实战示例]({{< relref "/docs/getting-started/use-cases/" >}})
+- [使用场景与实战示例]({{< relref "/docs/getting-started/use-cases" >}})
 
 ## Loadgen
 
