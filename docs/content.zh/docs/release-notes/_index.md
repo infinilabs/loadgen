@@ -14,6 +14,13 @@ title: "版本历史"
 ### ✈️ Improvements  
 - 为 Loadgen 增加原生 Go Modules 支持，包括与同级 Framework 本地仓库的模块联动，以及按 `go.mod` 声明版本执行的 PR 检查。
 
+## 1.30.2 (2026-03-16)
+### ❌ Breaking changes  
+### 🚀 Features  
+### 🐛 Bug fix  
+### ✈️ Improvements  
+- 此版本包含了底层 [Framework v1.4.0](https://docs.infinilabs.com/framework/v1.4.0) 的更新，解决了一些常见问题，并增强了整体稳定性和性能。虽然 Loadgen 本身没有直接的变更，但从 Framework 中继承的改进间接地使 Loadgen 受益。
+
 ## 1.30.1 (2025-12-19)
 ### ❌ Breaking changes  
 ### 🚀 Features  
