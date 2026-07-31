@@ -11,6 +11,7 @@ title: "版本历史"
 ### ❌ Breaking changes  
 ### 🚀 Features  
 - feat: 压测地址支持 IPv6
+- feat: test suite 支持 loadgen.yml, 探活 Gateway 检测动态的 Gateway 端口 #60
 
 ### 🐛 Bug fix  
 ### ✈️ Improvements  

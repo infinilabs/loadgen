@@ -538,9 +538,13 @@ tests:
   # The relative path of test cases under `LR_TEST_DIR`
   #
   # - gateway.yml: (Optional) the configuration to start the INFINI Gateway dynamically.
-  # - loadgen.dsl: the configuration to run the loadgen tool.
+  #   When present, the gateway is started via `LR_GATEWAY_CMD` before the test runs.
+  # - loadgen.dsl or loadgen.yml: the configuration to run the loadgen tool.
+  #   If both exist, `loadgen.dsl` has higher priority.
   #
-  # The environments set in `env` section will be passed to the INFINI Gateway and loadgen.
+  # The environments set in the top-level `env` section will be passed to the
+  # INFINI Gateway subprocess. Environments defined in a per-test `loadgen.yml`
+  # are also available to that test, with per-test values taking precedence.
   - path: cases/gateway/echo/echo_with_context
 ```
 
@@ -552,17 +556,30 @@ Loadgen 通过环境变量来动态配置 INFINI Gateway，环境变量在 `env`
 | ------------- | ---------------- |
 | `LR_TEST_DIR` | 测试用例所在目录 |
 
-如果你需要 `loadgen` 根据配置动态启动 INFINI Gateway，需要设置以下环境变量：
+如果测试用例里包含 `gateway.yml`（即需要 `loadgen` 动态启动 INFINI Gateway），则必须设置以下环境变量：
 
-| 变量名                | 说明                                 |
-| --------------------- | ------------------------------------ |
-| `LR_GATEWAY_CMD`      | INFINI Gateway 可执行文件的路径      |
-| `LR_GATEWAY_HOST`     | INFINI Gateway 绑定的主机名:端口     |
-| `LR_GATEWAY_API_HOST` | INFINI Gateway API 绑定的主机名:端口 |
+| 变量名           | 说明                            |
+| ---------------- | ------------------------------- |
+| `LR_GATEWAY_CMD` | INFINI Gateway 可执行文件的路径 |
+
+`LR_GATEWAY_HOST` 和 `LR_GATEWAY_API_HOST` 不再是 Loadgen 自身的配置，而是测试用例里常用的模板变量。在 `gateway.yml` 中，entry 和 api 的 binding 可以写成 `$[[env.LR_GATEWAY_HOST]]` 和 `$[[env.LR_GATEWAY_API_HOST]]`；在 `loadgen.yml` / `loadgen.dsl` 的请求 URL 里也可以引用它们。Loadgen 会解析 `gateway.yml` 自动探测所有需要监听的端口。
+
+环境变量的优先级（针对测试配置文件中的 `$[[env.ENV_KEY]]`）为：
+
+```text
+OS 环境变量 > 测试用例 loadgen.yml 的 env > 顶层 loadgen.yml 的 env
+```
 
 ### 测试用例配置
 
-测试用例在 `tests` 里配置，每个路径（`path`）指向一个测试用例的目录，每个测试用例需要配置一份 `gateway.yml`（可选）和 `loadgen.dsl`。配置文件可以使用 `env` 下配置的环境变量（`$[[env.ENV_KEY]]`）。
+测试用例在 `tests` 里配置，每个路径（`path`）指向一个测试用例的目录，每个测试用例需要配置
+
+1. Gateway 配置文件: `gateway.yml`（可选，存在时会动态启动 INFINI Gateway）
+2. 测试文件: `loadgen.dsl` 或 `loadgen.yml`。如果 2 者均存在，`loadgen.dsl` 具有更高的优先级
+
+测试用例自己的 `loadgen.yml` 里也可以定义 `env:` 段，用于覆盖或补充顶层 `loadgen.yml` 的环境变量（优先级见上文）。
+
+配置文件可以使用 `env` 下配置的环境变量（`$[[env.ENV_KEY]]`）。
 
 `gateway.yml` 参考配置：
 

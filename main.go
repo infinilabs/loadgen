@@ -436,6 +436,69 @@ func runDSLFile(appConfig *AppConfig, path string) int {
 	return runDSL(appConfig, dsl)
 }
 
+func runYAMLFile(appConfig *AppConfig, path string) int {
+	path = util.TryGetFileAbsPath(path, false)
+
+	raw, err := util.FileGetContent(path)
+	if err != nil {
+		if global.Env().SystemConfig.Configs.PanicOnConfigError {
+			panic(err)
+		} else {
+			log.Error(err)
+		}
+	}
+	log.Infof("loading config: %s", path)
+
+	// Merge environments from the top-level config and the per-test config,
+	// matching the framework's precedence: OS env > per-test env > top-level env.
+	envMap := map[string]interface{}{}
+	for k, v := range appConfig.Environments {
+		envMap[k] = v
+	}
+
+	perTestEnvCfg := struct {
+		Env map[string]string `config:"env"`
+	}{}
+	if cfg, err := coreConfig.NewConfigWithYAML(raw, "loadgen-env"); err == nil {
+		_ = cfg.Unpack(&perTestEnvCfg)
+	}
+	for k, v := range perTestEnvCfg.Env {
+		envMap[k] = v
+	}
+	for _, e := range os.Environ() {
+		kv := strings.SplitN(e, "=", 2)
+		if len(kv) == 2 {
+			envMap[kv[0]] = kv[1]
+		}
+	}
+
+	variables := util.MapStr{"env": envMap}
+	yamlContent := coreConfig.NestedRenderingTemplate(string(raw), variables)
+
+	loaderConfig := LoaderConfig{}
+	loaderConfig.RunnerConfig = appConfig.RunnerConfig
+	loaderConfig.Variable = appConfig.Variable
+
+	outputParser, err := coreConfig.NewConfigWithYAML([]byte(yamlContent), "loadgen-yaml")
+	if err != nil {
+		if global.Env().SystemConfig.Configs.PanicOnConfigError {
+			panic(err)
+		} else {
+			log.Error(err)
+		}
+	}
+
+	if err := outputParser.Unpack(&loaderConfig); err != nil {
+		if global.Env().SystemConfig.Configs.PanicOnConfigError {
+			panic(err)
+		} else {
+			log.Error(err)
+		}
+	}
+
+	return runLoaderConfig(&loaderConfig)
+}
+
 func runDSL(appConfig *AppConfig, dsl string) int {
 	loaderConfig := parseDSL(appConfig, dsl)
 	return runLoaderConfig(&loaderConfig)

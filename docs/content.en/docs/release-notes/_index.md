@@ -11,6 +11,7 @@ Information about release notes of INFINI Loadgen is provided here.
 ### ❌ Breaking changes  
 ### 🚀 Features  
 - feat: support ipv6 based endpoints
+- feat: run test suites with YAML test files and config-driven gateway probing- #60
 
 ### 🐛 Bug fix  
 ### ✈️ Improvements  
