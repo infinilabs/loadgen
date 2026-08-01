@@ -185,7 +185,7 @@ func (config *RunnerConfig) parseDefaultEndpoint() (*fasthttp.URI, error) {
 /*
 A test case is a standalone directory containing the following configs:
 - gateway.yml: The configuration to start the gateway server
-- loadgen.yml: The configuration to define the test cases
+- loadgen.yml or loadgen.dsl: The configuration to define the test cases
 */
 type Test struct {
 	// The directory of the test configurations

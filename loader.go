@@ -192,7 +192,7 @@ func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Reques
 				}
 
 				if item.Request != nil && config.RunnerConfig.LogRequests || util.ContainsInAnyInt32Array(statsCode, config.RunnerConfig.LogStatusCodes) {
-					log.Infof("[%v] %v, %v - %v", item.Request.Method, item.Request.Url, item.Request.Headers, util.SubString(string(reqBody), 0, 512))
+					log.Infof("[%v] %v, %v - %v", item.Request.Method, req.PhantomURI().String(), item.Request.Headers, util.SubString(string(reqBody), 0, 512))
 					log.Infof("status: %v, error: %v, response: %v", statsCode, err, util.SubString(string(respBody), 0, 512))
 				}
 
@@ -244,11 +244,11 @@ func doRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Reques
 					}
 				}
 			}
-
-			if item.Sleep != nil {
-				time.Sleep(time.Duration(item.Sleep.SleepInMilliSeconds) * time.Millisecond)
-			}
 		}
+	}
+
+	if item.Sleep != nil {
+		time.Sleep(time.Duration(item.Sleep.SleepInMilliSeconds) * time.Millisecond)
 	}
 
 	return true, nil
@@ -347,6 +347,9 @@ END:
 }
 
 func (v *RequestItem) prepareRequest(config *LoaderConfig, globalCtx util.MapStr, req *fasthttp.Request) {
+	if v.Request == nil {
+		return
+	}
 	//cleanup
 	req.Reset()
 	req.ResetBody()
