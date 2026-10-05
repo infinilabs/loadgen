@@ -21,7 +21,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-/* Copyright © INFINI Ltd. All rights reserved.
+/* Copyright 漏 INFINI Ltd. All rights reserved.
  * web: https://infinilabs.com
  * mail: hello#infini.ltd */
 
@@ -331,7 +331,8 @@ func writeResultReport(path string, concurrency int, wallTime time.Duration, agg
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0644)
+	_, err = util.FilePutContentWithByte(path, b)
+	return err
 }
 
 //func addProcessToCgroup(filepath string, pid int) {
