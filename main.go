@@ -38,6 +38,8 @@ import (
 	"strings"
 	"time"
 
+	"encoding/json"
+
 	"github.com/jamiealquiza/tachymeter"
 
 	log "github.com/cihub/seelog"
@@ -68,6 +70,7 @@ var compress bool = false
 var mixed bool = false
 var totalRounds int = -1
 var dslFileToRun string
+var resultFile string
 var statsAggregator chan *LoadStats
 
 func init() {
@@ -83,6 +86,7 @@ func init() {
 	flag.BoolVar(&mixed, "mixed", false, "Enable mixed requests from YAML/DSL")
 	flag.IntVar(&totalRounds, "total-rounds", -1, "Number of rounds for each request configuration, default: -1 (unlimited)")
 	flag.StringVar(&dslFileToRun, "run", "", "Path to a DSL-based request file to execute")
+	flag.StringVar(&resultFile, "result-file", "", "Write the final metrics report as JSON to this file")
 }
 
 func startLoader(cfg *LoaderConfig) *LoadStats {
@@ -250,7 +254,84 @@ func startLoader(cfg *LoaderConfig) *LoadStats {
 
 	fmt.Println("")
 
+	if resultFile != "" {
+		metrics := timer.Calc()
+		if err := writeResultReport(resultFile, goroutines, finalDuration, &aggStats, roughReqRate, reqRate, avgReqTime, metrics); err != nil {
+			log.Errorf("failed to write result file %s: %v", resultFile, err)
+		} else {
+			fmt.Printf("result file written: %s\n", resultFile)
+		}
+	}
+
 	return &aggStats
+}
+
+// ResultReport is the machine-readable summary of a loadgen run, written when
+// -result-file is set. All latencies are normalized to milliseconds.
+type ResultReport struct {
+	Timestamp            string             `json:"timestamp"`
+	DurationSec          float64            `json:"duration_s"`
+	Concurrency          int                `json:"concurrency"`
+	Requests             int                `json:"requests"`
+	NumErrors            int                `json:"num_errors"`
+	AssertInvalid        int                `json:"assert_invalid"`
+	AssertSkipped        int                `json:"assert_skipped"`
+	QPS                  float64            `json:"qps"`
+	SentBytes            int64              `json:"sent_bytes"`
+	RecvBytes            int64              `json:"recv_bytes"`
+	AvgRequestMs         float64            `json:"avg_request_ms"`
+	StatusCode           map[int]int        `json:"status_code"`
+	LatencyMs            map[string]float64 `json:"latency_ms"`
+	LatencySamples       int                `json:"latency_samples"`
+	EstimatedServerQPS   float64            `json:"estimated_server_qps"`
+	EstimatedServerAvgMs float64            `json:"estimated_server_avg_ms"`
+}
+
+func ms(d time.Duration) float64 {
+	return float64(d.Nanoseconds()) / float64(time.Millisecond)
+}
+
+func writeResultReport(path string, concurrency int, wallTime time.Duration, agg *LoadStats,
+	clientQPS float64, serverQPS float64, avgReqTime time.Duration, m *tachymeter.Metrics) error {
+
+	report := ResultReport{
+		Timestamp:            time.Now().Format(time.RFC3339),
+		DurationSec:          wallTime.Seconds(),
+		Concurrency:          concurrency,
+		Requests:             agg.NumRequests,
+		NumErrors:            agg.NumErrs,
+		AssertInvalid:        agg.NumAssertInvalid,
+		AssertSkipped:        agg.NumAssertSkipped,
+		QPS:                  clientQPS,
+		SentBytes:            agg.TotReqSize,
+		RecvBytes:            agg.TotRespSize,
+		AvgRequestMs:         ms(avgReqTime),
+		StatusCode:           agg.StatusCode,
+		LatencySamples:       m.Samples,
+		EstimatedServerQPS:   serverQPS,
+		EstimatedServerAvgMs: ms(avgReqTime),
+	}
+	if m != nil {
+		report.LatencyMs = map[string]float64{
+			"min":        ms(m.Time.Min),
+			"p50":        ms(m.Time.P50),
+			"p75":        ms(m.Time.P75),
+			"p95":        ms(m.Time.P95),
+			"p99":        ms(m.Time.P99),
+			"p999":       ms(m.Time.P999),
+			"avg":        ms(m.Time.Avg),
+			"hmean":      ms(m.Time.HMean),
+			"max":        ms(m.Time.Max),
+			"stddev":     ms(m.Time.StdDev),
+			"cumulative": ms(m.Time.Cumulative),
+		}
+	}
+
+	b, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, b, 0644)
 }
 
 //func addProcessToCgroup(filepath string, pid int) {
