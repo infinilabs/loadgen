@@ -12,6 +12,8 @@ title: "版本历史"
 ### 🚀 Features  
 - feat: 压测地址支持 IPv6
 - feat: test suite 支持 loadgen.yml, 探活 Gateway 检测动态的 Gateway 端口 #60
+- feat: 新增 `-result-file` 参数，压测结束时将最终指标报告（请求数、QPS、状态码分布、毫秒级延迟分位数）以 JSON 格式输出到文件
+- feat: `file` 变量支持加权词典（`weighted: true`、`weight_separator`）——从去重的 `值<TAB>权重` 词典中按频次采样
 
 ### 🐛 Bug fix  
 ### ✈️ Improvements  
