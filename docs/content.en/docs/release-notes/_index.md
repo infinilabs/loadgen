@@ -12,6 +12,8 @@ Information about release notes of INFINI Loadgen is provided here.
 ### 🚀 Features  
 - feat: support ipv6 based endpoints
 - feat: run test suites with YAML test files and config-driven gateway probing- #60
+- feat: add `-result-file` option to write the final metrics report (requests, QPS, status codes, latency percentiles in ms) as JSON
+- feat: add weighted dictionary support for `file` variables (`weighted: true`, `weight_separator`) — sample values proportionally to frequency from deduplicated `value<TAB>weight` dictionaries
 
 ### 🐛 Bug fix  
 ### ✈️ Improvements  

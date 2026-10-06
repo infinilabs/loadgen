@@ -33,6 +33,8 @@ import (
 	"fmt"
 	"infini.sh/framework/core/model"
 	"math/rand"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -93,6 +95,14 @@ type Variable struct {
 	Path   string   `config:"path"`
 	Data   []string `config:"data"`
 	Format string   `config:"format"`
+
+	// type: file, weighted
+	// when Weighted is true, each line of the dictionary file is expected to be
+	// "<value><WeightSeparator><weight>" (default separator: TAB, weight
+	// defaults to 1 when missing); values are sampled proportionally to their
+	// weights instead of uniformly.
+	Weighted        bool   `config:"weighted"`
+	WeightSeparator string `config:"weight_separator"`
 
 	//type: range
 	From uint64 `config:"from"`
@@ -206,6 +216,24 @@ var (
 	variables map[string]Variable
 )
 
+// WeightedDict samples values proportionally to their weights, avoiding the
+// need to repeat values in the dictionary file.
+type WeightedDict struct {
+	values     []string
+	cumWeights []uint64
+}
+
+// Pick returns a random value, with each value's probability proportional to
+// its weight, using binary search over the cumulative weights.
+func (w *WeightedDict) Pick() string {
+	total := w.cumWeights[len(w.cumWeights)-1]
+	target := rand.Int63n(int64(total))
+	idx := sort.Search(len(w.cumWeights), func(i int) bool { return uint64(target) < w.cumWeights[i] })
+	return w.values[idx]
+}
+
+var weightedDict = map[string]*WeightedDict{}
+
 func (config *AppConfig) Init() {
 
 }
@@ -225,6 +253,7 @@ func (config *LoaderConfig) Init() error {
 	variables = map[string]Variable{}
 	if config.RunnerConfig.ResetContext {
 		dict = map[string][]string{}
+		weightedDict = map[string]*WeightedDict{}
 		util.ClearAllID()
 	}
 
@@ -256,6 +285,39 @@ func (config *LoaderConfig) Init() error {
 				replaces = append(replaces, k, v)
 			}
 			i.replacer = strings.NewReplacer(replaces...)
+		}
+
+		if i.Weighted && len(lines) > 0 {
+			wd := &WeightedDict{}
+			sep := i.WeightSeparator
+			if sep == "" {
+				sep = "\t"
+			}
+			var total uint64
+			for _, line := range lines {
+				line = util.TrimSpaces(line)
+				if line == "" {
+					continue
+				}
+				value, weightStr := line, "1"
+				if pos := strings.LastIndex(line, sep); pos >= 0 {
+					value = line[:pos]
+					weightStr = line[pos+len(sep):]
+				}
+				weight, err := strconv.ParseUint(util.TrimSpaces(weightStr), 10, 64)
+				if err != nil || weight == 0 {
+					weight = 1
+				}
+				wd.values = append(wd.values, value)
+				total += weight
+				wd.cumWeights = append(wd.cumWeights, total)
+			}
+			if len(wd.values) > 0 {
+				weightedDict[i.Name] = wd
+				log.Debugf("weighted dict [%v]: %v unique values, total weight %v", i.Name, len(wd.values), total)
+				variables[i.Name] = i
+				continue
+			}
 		}
 
 		dict[i.Name] = lines
@@ -422,6 +484,9 @@ func buildVariableValue(x Variable) string {
 		}
 		return str.String()
 	case "file", "list":
+		if wd, ok := weightedDict[x.Name]; ok {
+			return wd.Pick()
+		}
 		d, ok := dict[x.Name]
 		if ok {
 

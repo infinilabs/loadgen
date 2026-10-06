@@ -18,6 +18,7 @@ loadgen [选项]
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `-run` | string | `loadgen.dsl` | DSL 测试文件路径 |
+| `-result-file` | string | — | 将最终指标报告（请求数、QPS、状态码分布、毫秒级延迟分位数）以 JSON 格式写入该文件 |
 | `-config` | string | `loadgen.yml` | YAML 配置文件路径 |
 | `-d` | int | `5` | 测试持续时间（秒） |
 | `-c` | int | `1` | 并发线程数 |
@@ -167,6 +168,8 @@ ES_ENDPOINT="http://[fe81::18df:9883:1e27:b040%25en0]:9200" loadgen -run loadgen
 | `path` | 外部文本文件路径，每行一个值 |
 | `data` | 追加到文件内容之后的额外数据列表 |
 | `replace` | 对取到的值做字符替换（用于转义特殊字符） |
+| `weighted` | 开启按频次加权采样——每行格式为 `值<分隔符>权重` |
+| `weight_separator` | 值与权重之间的分隔符（默认：TAB） |
 
 **NDJSON 语料支持：**
 
@@ -205,6 +208,30 @@ $[[doc]]
 - 用真实数据做写入压测
 - 批量导入已有数据集
 - 保持文档结构多样性
+
+**加权词典支持：**
+
+对 `file` 变量设置 `weighted: true`，即可按频次加权采样。词典每行为 `值<分隔符>权重`——每个值一行，无需重复书写（权重缺省为 `1`）：
+
+```text
+# dict/countries.txt — 值<TAB>次数
+US	196116
+CN	61724
+NO	52772
+```
+
+变量定义：
+
+```text
+{
+  name: "country",
+  type: "file",
+  path: "dict/countries.txt",
+  weighted: true,
+}
+```
+
+采样通过累积权重的二分查找实现，命中概率严格跟随真实分布（例如 `US` 的命中频率约为 `NO` 的 5 倍）。若值本身包含 TAB，可通过 `weight_separator` 自定义分隔符。
 
 #### list
 

@@ -18,6 +18,7 @@ loadgen [options]
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
 | `-run` | string | `loadgen.dsl` | Path to DSL test file |
+| `-result-file` | string | — | Write the final metrics report (requests, QPS, status codes, latency percentiles in milliseconds) as JSON to this file |
 | `-config` | string | `loadgen.yml` | Path to YAML configuration file |
 | `-d` | int | `5` | Test duration in seconds |
 | `-c` | int | `1` | Number of concurrent threads |
@@ -167,6 +168,8 @@ Variables are referenced in requests using `$[[variable_name]]` and produce a ne
 | `path` | Path to external text file (one value per line) |
 | `data` | Additional values appended after file contents |
 | `replace` | Character replacements applied to the value (for escaping) |
+| `weighted` | Enable frequency-weighted sampling — each line is `value<separator>weight` |
+| `weight_separator` | Separator between value and weight (default: TAB) |
 
 **NDJSON Corpus Support:**
 
@@ -204,6 +207,30 @@ On each repetition, `$[[doc]]` picks a random line from the corpus file and uses
 
 - Benchmarking writes with realistic data
 - Bulk-importing existing datasets
+
+**Weighted Dictionary Support:**
+
+Set `weighted: true` on a `file` variable to sample values proportionally to their frequency. Each dictionary line is `value<separator>weight` — one line per unique value, no duplication needed (the weight defaults to `1` when missing):
+
+```text
+# dict/countries.txt — value<TAB>count
+US	196116
+CN	61724
+NO	52772
+```
+
+Variable definition:
+
+```text
+{
+  name: "country",
+  type: "file",
+  path: "dict/countries.txt",
+  weighted: true,
+}
+```
+
+Values are picked by binary search over cumulative weights, so sampling follows the real distribution (e.g. a `US` term query hits ~5x more often than `NO`). Use a custom separator via `weight_separator` if values contain tabs.
 - Maintaining document structure diversity
 
 #### list
