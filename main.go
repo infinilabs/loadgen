@@ -21,7 +21,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-/* Copyright 漏 INFINI Ltd. All rights reserved.
+/* Copyright © INFINI Ltd. All rights reserved.
  * web: https://infinilabs.com
  * mail: hello#infini.ltd */
 
